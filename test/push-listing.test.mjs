@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { run } from '../scripts/push-listing.mjs';
 import { checkListing } from '../scripts/check-listing.mjs';
+import { explainApiError, withEdit } from '../scripts/lib/play-client.mjs';
 
 const valid = fileURLToPath(new URL('./fixtures/listing/valid', import.meta.url));
 const ok = () => ({ ok: true, errors: [], warnings: [] });
@@ -118,4 +119,71 @@ test('--text-only skips image checks and image calls', async () => {
 
 test('real checkListing accepts the fixture used here', () => {
   assert.equal(checkListing(valid).ok, true);
+});
+
+test('screenshots upload in numeric file order', async () => {
+  const dir = setup();
+  const d = join(dir, 'en-US', 'images', 'phoneScreenshots');
+  writeFileSync(join(d, '10.png'), 'p10');
+  const bodies = [];
+  const pub = fake();
+  const up = pub.edits.images.upload;
+  pub.edits.images.upload = async (p) => { if (p.imageType === 'phoneScreenshots') bodies.push(p.media.body.path); return up(p); };
+  await run(args(dir, ['--apply']), deps(pub));
+  assert.deepEqual(bodies.map((b) => b.split('/').pop()), ['1.png', '2.png', '10.png']);
+});
+
+test('field on Play with no local file is kept and reported', async () => {
+  const dir = setup();
+  const logs = [];
+  const pub = fake({ listings: [{ ...remoteOf(dir, 'en-US'), title: 'Old', video: 'https://youtu.be/x' }] });
+  await run(args(dir, ['--text-only']), deps(pub, { log: (m) => logs.push(m) }));
+  assert.match(logs.join('\n'), /en-US: video: on Play, no local file — kept/);
+});
+
+test('flag values starting with -- are rejected', async () => {
+  const pub = fake();
+  const errs = [];
+  assert.equal(await run(['--package', 'p', '--default', '--apply', valid], deps(pub, { err: (m) => errs.push(m) })), 2);
+  assert.deepEqual(pub.calls, []);
+});
+
+test('no "edit discarded" message when no edit was created', async () => {
+  const dir = setup();
+  const pub = fake();
+  pub.edits.insert = async () => { throw Object.assign(new Error('nope'), { code: 403 }); };
+  const errs = [];
+  assert.equal(await run(args(dir, ['--apply']), deps(pub, { err: (m) => errs.push(m) })), 1);
+  assert.doesNotMatch(errs.join('\n'), /discarded/);
+});
+
+test('both icon.png and icon.jpg warns', async () => {
+  const dir = setup();
+  writeFileSync(join(dir, 'en-US', 'images', 'icon.jpg'), 'j');
+  const errs = [];
+  await run(args(dir), deps(fake(), { err: (m) => errs.push(m) }));
+  assert.match(errs.join('\n'), /warning: en-US: icon exists in several formats/);
+});
+
+test('withEdit: commit throws -> edit deleted, original error', async () => {
+  const pub = fake({ failOn: 'commit' });
+  await assert.rejects(withEdit(pub, 'p', async () => {}, { commit: true }), /boom/);
+  assert.ok(pub.calls.includes('delete'));
+});
+
+test('withEdit: delete failing after an error keeps the original error', async () => {
+  const pub = fake();
+  pub.edits.delete = async () => { throw new Error('delete failed'); };
+  await assert.rejects(withEdit(pub, 'p', async () => { throw new Error('orig'); }), /orig/);
+});
+
+test('withEdit: failing cleanup delete after a good dry run is ignored', async () => {
+  const pub = fake();
+  pub.edits.delete = async () => { throw new Error('delete failed'); };
+  assert.equal(await withEdit(pub, 'p', async () => 42), 42);
+});
+
+test('explainApiError: no status -> bare message; ENOENT is not a status', () => {
+  assert.equal(explainApiError(Object.assign(new Error('socket hang up'), { code: 'ENOENT' }), 'p'), 'socket hang up');
+  assert.match(explainApiError({ code: 403, message: 'API has not been used in project 1' }, 'p'), /not enabled.*setup.md step 1/);
 });

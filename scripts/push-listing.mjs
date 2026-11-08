@@ -35,8 +35,13 @@ function parseArgs(argv) {
   const o = { dir: 'fastlane/metadata/android', apply: false, textOnly: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--package') o.pkg = argv[++i];
-    else if (a === '--default') o.defaultLocale = argv[++i];
+    const val = () => {
+      const v = argv[++i];
+      if (v === undefined || v.startsWith('--')) throw new Error(`${a} needs a value`);
+      return v;
+    };
+    if (a === '--package') o.pkg = val();
+    else if (a === '--default') o.defaultLocale = val();
     else if (a === '--apply') o.apply = true;
     else if (a === '--text-only') o.textOnly = true;
     else if (a.startsWith('--')) throw new Error(`unknown option ${a}`);
@@ -56,13 +61,15 @@ function localListing(dir, locale) {
   return l;
 }
 
-function localImages(dir, locale, type) {
+function localImages(dir, locale, type, warn = () => {}) {
   const base = join(dir, locale, 'images');
   let files = [];
   if (SINGLE.has(type)) {
-    files = ['.png', '.jpg', '.jpeg'].map((e) => join(base, type + e)).filter(existsSync).slice(0, 1);
+    const found = ['.png', '.jpg', '.jpeg'].map((e) => join(base, type + e)).filter(existsSync);
+    if (found.length > 1) warn(`${locale}: ${type} exists in several formats; using ${found[0]}`);
+    files = found.slice(0, 1);
   } else if (existsSync(join(base, type))) {
-    files = readdirSync(join(base, type)).filter((f) => MIME[extname(f).toLowerCase()]).sort().map((f) => join(base, type, f));
+    files = readdirSync(join(base, type)).filter((f) => MIME[extname(f).toLowerCase()]).sort((a, b) => a.localeCompare(b, 'en', { numeric: true })).map((f) => join(base, type, f));
   }
   return files.map((path) => ({ path, sha: sha256(path) }));
 }
@@ -77,6 +84,7 @@ export async function run(argv, deps = {}) {
   let o;
   try { o = parseArgs(argv); } catch (e) { err(`error: ${e.message}`); return 2; }
 
+  let editOpened = false;
   try {
     const checks = [['listing', await checkListing(o.dir, { defaultLocale: o.defaultLocale })]];
     if (!o.textOnly) checks.push(['images', await checkImages(o.dir, { defaultLocale: o.defaultLocale })]);
@@ -94,6 +102,7 @@ export async function run(argv, deps = {}) {
     const summary = { textChanged: 0, imageTypesChanged: 0 };
 
     await withEdit(publisher, o.pkg, async (editId) => {
+      editOpened = true;
       const base = { packageName: o.pkg, editId };
       const { data: ld } = await publisher.edits.listings.list(base);
       const remote = new Map((ld?.listings ?? []).map((x) => [x.language, x]));
@@ -104,6 +113,9 @@ export async function run(argv, deps = {}) {
         const rem = remote.get(locale);
         const changed = TEXT_FIELDS.map(([f]) => f).filter((f) => local[f] !== undefined && local[f] !== (rem?.[f] ?? undefined));
         if (!rem) log(`${locale}: new locale listing`);
+        for (const [f] of TEXT_FIELDS) {
+          if (local[f] === undefined && rem?.[f]) log(`${locale}: ${f}: on Play, no local file \u2014 kept`);
+        }
         for (const f of changed) log(`${locale}: ${f}: "${clip(rem?.[f])}" -> "${clip(local[f])}"`);
         if (changed.length || !rem) {
           summary.textChanged++;
@@ -115,7 +127,7 @@ export async function run(argv, deps = {}) {
 
         if (o.textOnly) continue;
         for (const type of IMAGE_TYPES) {
-          const files = localImages(o.dir, locale, type);
+          const files = localImages(o.dir, locale, type, (m) => err(`warning: ${m}`));
           if (!files.length) continue;
           const { data: id } = await publisher.edits.images.list({ ...base, language: locale, imageType: type });
           const rimgs = id?.images ?? [];
@@ -149,7 +161,7 @@ export async function run(argv, deps = {}) {
     return 0;
   } catch (e) {
     err(`error: ${explainApiError(e, o.pkg)}`);
-    if (o.apply) err('The edit was discarded; nothing was committed.');
+    if (o.apply && editOpened) err('The edit was discarded; nothing was committed.');
     return 1;
   }
 }
