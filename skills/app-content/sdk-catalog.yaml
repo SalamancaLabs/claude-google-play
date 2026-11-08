@@ -1,0 +1,84 @@
+# Small catalog of common SDKs and the Data safety data types each one implies.
+# Rules:
+# - `data` keys are "<group>.<key>" and match schema/app-content.schema.json data_safety.data_types exactly.
+# - Every field comes from the vendor's own disclosure at `source`. A field the source does not state is
+#   omitted (not guessed): omitted `shared` / `purposes` / `required` / `ephemeral` => needs_review.
+# - `depends_on_usage` lists data the SDK can collect depending on how the app configures it. Never confirm those from the catalog.
+# - A package that is not listed here is unknown => needs_review.
+sdks:
+  - id: firebase_analytics
+    name: Firebase Analytics (Google Analytics for Firebase)
+    packages:
+      pub: [firebase_analytics]
+      maven: [com.google.firebase:firebase-analytics, com.google.firebase:firebase-analytics-ktx]
+      npm: ["@react-native-firebase/analytics"]
+    source: https://support.google.com/analytics/answer/11582702
+    also_see: https://firebase.google.com/docs/android/play-data-disclosure
+    data:
+      device_or_other_ids.device_or_other_ids: { note: app instance ID }
+      location.approximate_location: { note: coarse location derived from IP address }
+    depends_on_usage: [app_activity.app_interactions]
+
+  - id: firebase_crashlytics
+    name: Firebase Crashlytics
+    packages:
+      pub: [firebase_crashlytics]
+      maven: [com.google.firebase:firebase-crashlytics, com.google.firebase:firebase-crashlytics-ktx, com.google.firebase:firebase-crashlytics-ndk]
+      npm: ["@react-native-firebase/crashlytics"]
+    source: https://firebase.google.com/docs/android/play-data-disclosure
+    data:
+      app_info_and_performance.crash_logs: { note: stack traces and app state at crash }
+      app_info_and_performance.diagnostics: { note: device metadata at crash }
+      device_or_other_ids.device_or_other_ids: { note: Crashlytics installation UUID }
+    requires_also: [Firebase installations SDK (pulled in transitively; see source)]
+
+  - id: admob
+    name: Google Mobile Ads SDK (AdMob)
+    packages:
+      pub: [google_mobile_ads]
+      maven: [com.google.android.gms:play-services-ads, com.google.android.gms:play-services-ads-lite]
+      npm: [react-native-google-mobile-ads]
+    source: https://developers.google.com/admob/android/privacy/play-data-disclosure
+    ads: true
+    uses_advertising_id: true   # source: collects the Android advertising ID unless the manifest removes AD_ID
+    data:
+      location.approximate_location: { shared: true, note: IP address may be used to estimate general location }
+      app_activity.app_interactions: { shared: true, note: app launch, taps, video views }
+      app_info_and_performance.diagnostics: { shared: true, note: launch time, hang rate, energy usage }
+      device_or_other_ids.device_or_other_ids: { shared: true, note: ad ID, app set ID, account identifiers }
+    purposes: [advertising_or_marketing, analytics, fraud_prevention_security_compliance]
+
+  - id: revenuecat
+    name: RevenueCat
+    packages:
+      pub: [purchases_flutter, purchases_ui_flutter]
+      maven: [com.revenuecat.purchases:purchases]
+      npm: [react-native-purchases]
+    source: https://www.revenuecat.com/docs/platform-resources/google-platform-resources/google-plays-data-safety
+    data:
+      financial_info.purchase_history: { required: true, ephemeral: false }
+    purposes: [app_functionality, analytics]
+    note: source says "shared" may also apply if third-party integrations that are not service providers are enabled
+
+  - id: sentry
+    name: Sentry
+    packages:
+      pub: [sentry_flutter, sentry]
+      maven: [io.sentry:sentry-android, io.sentry:sentry]
+      npm: ["@sentry/react-native"]
+    source: https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
+    data:
+      app_info_and_performance.crash_logs: { note: error events and stack traces }
+      app_info_and_performance.diagnostics: { note: device and runtime information }
+    depends_on_usage: [location.approximate_location, personal_info.user_ids, personal_info.email_address, device_or_other_ids.device_or_other_ids]
+    note: source says IP address and logged-in user data are not sent by default; check sendDefaultPii and setUser calls
+
+  - id: aptabase
+    name: Aptabase
+    packages:
+      pub: [aptabase_flutter]
+      npm: ["@aptabase/react-native"]
+    source: https://aptabase.com/legal/privacy
+    data:
+      app_activity.app_interactions: { note: analytics events sent by the app }
+    note: source says the SDK collects no device ID; it derives a daily rotating pseudonymous ID server-side from IP and user agent

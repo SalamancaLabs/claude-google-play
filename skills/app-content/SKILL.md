@@ -16,10 +16,49 @@ Every browser step runs this first, using the `google-play-browser` MCP server (
 3. Confirm the Console UI is in English: the page `lang` attribute is `en` or English navigation labels such as "App content" are present. If not, STOP and tell the owner to switch the language (Play Console Settings → Preferences, or the Google account language).
 4. Confirm the developer account and app name match what the owner expects. If you do not know them, ask. STOP on a mismatch.
 
+## Draft
+
+Never touches the Play Console. Reads the app repo, writes `play/app-content.yaml`, validates it. Needs no browser.
+
+1. **Scan.** Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/scan-app.mjs" <repoDir>` (`<repoDir>` = the app repo root). It prints JSON facts, each with the file (and line) it came from: manifest permissions and `tools:node="remove"` removals (debug/profile manifests listed apart from `main`), dependencies (pubspec `dependencies` only, Gradle, `package.json`), network hosts, privacy policy URL candidates, locale hints, app identity.
+2. **Identity.** `package_name` from the Gradle `applicationId` (else ask the owner); `app_name` from the manifest `label` or the owner. If either is unknown, ask. Do not invent.
+3. **Map facts to answers** using `${CLAUDE_PLUGIN_ROOT}/skills/app-content/sdk-catalog.yaml`. Match each declared dependency name against the catalog `packages` (pub / maven / npm). Matches in `main` code only; ignore `debugImplementation`-style configurations and debug/profile manifests for release answers, and say so in `note`.
+   - Catalog match: set the entry's `data` types to `collected: true`. Copy `shared`, `purposes`, `required`, `ephemeral` only if the catalog entry states them. Where it does not, leave the answer `needs_review` and ask the missing question (for example "Is Crashlytics data shared with anyone besides Google?"). Cite `dependency: <name>@<version>` and put the catalog `source` URL in `note`. `depends_on_usage` types are always `needs_review`: ask whether the app's configuration or code sends them.
+   - Dependency not in the catalog: it may collect data. Mark `collects_or_shares_user_data` as `needs_review` and list the unknown packages in the question. Do not guess what an unknown SDK does.
+   - Ad SDK in catalog (`ads: true`): `ads.contains_ads` true, `evidence: dependency`. `advertising_id.uses_advertising_id`: true if `com.google.android.gms.permission.AD_ID` is in `permissions` and not in `removed`; if it is in `removed`, the permission is stripped (cite the manifest file:line) but still ask the owner whether any other SDK reads the ID.
+   - Manifest permissions: `ACCESS_FINE_LOCATION` / `ACCESS_COARSE_LOCATION`, `CAMERA`, `RECORD_AUDIO`, `READ_CONTACTS`, `READ_CALENDAR`, `READ_SMS`, and similar imply the app may handle that data type. A permission present means `needs_review` ("Is this data collected or only processed on device?"), never auto `collected: true`.
+   - Privacy policy: use a `privacy_policy_candidates` URL. Several candidates, or a source other than the README/fastlane metadata: `needs_review` listing them. Must be `https://`.
+   - Network hosts are context for the owner's questions (what leaves the device); they never prove a data type on their own.
+4. **Evidence rules.** Every answer needs a status. `confirmed` answers must cite at least one item:
+   - `file:` repo-relative path, optionally `path:line`. The file must exist.
+   - `dependency:` `name@version` as declared. The dependency must be declared.
+   - `ticket:` only when the owner points to one.
+   - `owner:` only for an explicit statement the owner made in this session, quoted.
+   Anything else is `needs_review`, `value: null` (or your best guess in `value` when useful), `evidence: []` or what you found, and `question:` written out so the owner can answer it in one line.
+5. **Absence rule.** Absence of evidence never confirms a claim Play needs stated positively. This covers every "no ads / no data collected / no login / no purchases / not shared / not collected" answer, including each data type in Data safety set to `collected: false`. Such an answer may be `confirmed` only when (a) the scanner found no dependency, permission or code path that implies the opposite (cite the files you checked, e.g. the manifest and the dependency file) AND (b) the owner confirmed it in this session (add an `owner:` item quoting them). Otherwise `needs_review` with the question "Confirm: does the app ...?". Example: no ad SDK found and the owner says "no ads" -> `contains_ads: false` confirmed with `dependency` absence noted plus `owner:`. No owner answer -> `needs_review`.
+6. **Owner decisions.** `content_rating` (category and each questionnaire answer), `target_audience`, `news_app`, `government_app`, `financial_features`, `health_apps` are decisions, not facts. Always `needs_review` with a concrete question unless the owner already answered. Examples: "Which age groups is the app aimed at?", "Does it show user-generated content or let users interact?", "Does the app offer any health feature (medication, sleep, symptoms)?". `app_access`: `needs_review` unless the owner says whether any feature needs a login (the scanner cannot tell). `security.encrypted_in_transit`: `needs_review` unless `network_hosts` are all `https` AND the owner confirms; `deletion_request_mechanism`: ask the owner.
+7. **Re-run (file already exists).** Read `play/app-content.yaml` first.
+   - Keep every answer the owner resolved (status `confirmed` with an `owner:` item) as is. Do not overwrite it.
+   - For each other `confirmed` answer, re-check its evidence: `file:` still exists (and the cited line still holds the same content if you cited a line); `dependency:` still declared at that version. If any item fails, set `status: needs_review` and put the reason in `question` (e.g. "dependency firebase_analytics no longer declared; still collects analytics?"). Never silently drop evidence.
+   - New facts (a new dependency not in the file): add or downgrade the affected answers to `needs_review`.
+   - Keep `needs_review` answers the owner has not touched; update their `question` if the scan changed it.
+8. **Write and validate.** Write `play/app-content.yaml` (create `play/` if needed) in the shape of `${CLAUDE_PLUGIN_ROOT}/examples/app-content.example.yaml`. All `sections` keys and all Data safety data types are required by the schema: fill the full set. Then run `node "${CLAUDE_PLUGIN_ROOT}/scripts/validate.mjs" play/app-content.yaml`. Fix every error and re-run until it exits 0.
+9. **Summary.** End with `N confirmed, M needs review` (the validator prints these counts) and a numbered list of every open question with its YAML path. Tell the owner to resolve them in the Review phase.
+
+## Review
+
+The owner resolves each `needs_review` answer; Claude records it. Nothing is applied to the Console in this phase.
+
+1. Show the open questions from the Draft summary (or re-list them from the YAML), grouped by section.
+2. For each answer the owner gives, update that leaf: set `value`, set `status: confirmed`, remove `question`, and add an evidence item `owner:` quoting their statement as they gave it (keep any file/dependency evidence already there). Do not paraphrase their words into something stronger than they said. If the owner is unsure, leave it `needs_review` and refine the question.
+3. If the owner's answer needs facts not in the repo (a ticket, a policy page), add `ticket:` only if they point to one.
+4. Re-run `node "${CLAUDE_PLUGIN_ROOT}/scripts/validate.mjs" play/app-content.yaml`, fix errors, and print the new `N confirmed, M needs review` line.
+5. Ask the owner to commit `play/app-content.yaml`. Apply only starts when no `needs_review` is left, or the owner explicitly chooses to apply the confirmed sections only.
+
 ## Phases
 
-1. **Draft** - Not implemented yet.
-2. **Review** - Not implemented yet.
+1. **Draft** - See the Draft section above.
+2. **Review** - See the Review section above.
 3. **Apply** - see [Apply](#apply) below.
 
 A separate read-only **Verify** run compares the live Console answers with the YAML - Not implemented yet.

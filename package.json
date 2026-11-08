@@ -14,7 +14,8 @@
     "check-listing": "node scripts/check-listing.mjs",
     "check-images": "node scripts/check-images.mjs",
     "validate": "node scripts/validate.mjs",
-    "push-listing": "node scripts/push-listing.mjs"
+    "push-listing": "node scripts/push-listing.mjs",
+    "scan-app": "node scripts/scan-app.mjs"
   },
   "dependencies": {
     "@googleapis/androidpublisher": "42.3.0",
