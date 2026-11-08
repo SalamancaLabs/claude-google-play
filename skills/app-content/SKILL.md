@@ -38,16 +38,25 @@ Fills every App content section except Data safety in the Console from `play/app
 
 Go through the sections of `console-map.yaml` in order. For each one:
 
-1. Navigate: Policy and programs → App content → the section's `card`, then its `open_button` ("Start" or "Manage", whichever is shown).
+1. Navigate: Policy and programs → App content → the section's `card`, then click whichever `open_button` entry is shown.
 2. Read the current Console values for every question of the section, without changing anything.
-3. Show the owner a table: question | Console now | YAML | change?
+3. Show the owner a table: YAML key | exact on-screen question and option text, quoted from the browser snapshot | Console now | YAML answer | change? Every map label is `verified: false`, so match by meaning, and quote what is really on screen next to the key. The owner's approval covers that pairing. If no on-screen question plausibly matches a key, or more than one does, treat it as "label not found" below.
 4. If nothing changes, report the section as unchanged and move on. Do not click Save.
 5. Otherwise fill only the controls that change, using the `map` rules. Find each control by its visible English label and ARIA role in the browser snapshot. Never use CSS classes, element ids, or coordinates. Never type credentials or fill sign-in forms; `access_instructions` text comes from the YAML as written.
+   Before approval, click only Next and Back inside a form. Never click "Save draft" or "Save as draft" (content rating, financial features and health apps have them), and never click Discard.
 6. Ask the owner for explicit approval of the filled form. Only after a clear yes, click the section's `save_button` (Save, Submit, or the last Next-then-Save step of a wizard). Wait for the confirmation, then re-read the values to check they stuck.
+
+### Content rating
+
+Walk the whole questionnaire with Next and Back, filling nothing it already shows correctly, and collect ALL IARC questions into one approval table. Do not submit page by page. Stop the section when a Console question has no YAML key, or when a YAML questionnaire key matches no Console question. Never retake: if only "Start new questionnaire" is offered or a retake dialog appears, stop, leave it unsaved, and report.
+
+### Never do
+
+Never open Publishing overview. Never click "Send for review", "Send changes for review" or "Publish". Saving a section is the only change you make; the owner sends changes for review themselves.
 
 ### Stop on the section (do not guess) when
 
-- a label from `console-map.yaml` is not found,
+- no on-screen question plausibly matches a map entry, or more than one does (label not found),
 - the form shows a question the YAML or the map does not cover,
 - a control has a different type than the map says,
 - a confirmation dialog appears that is not a plain save (for example discard, retake, or a policy warning).

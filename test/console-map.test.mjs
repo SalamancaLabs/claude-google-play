@@ -26,6 +26,7 @@ test('every section has source URLs and navigation', () => {
     const sec = map.sections[s];
     assert.ok(Array.isArray(sec.source) && sec.source.length > 0, `${s} source`);
     for (const u of sec.source) assert.match(u, /^https:\/\//, `${s} source url`);
+    assert.ok(sec.google_source === 'none' || sec.source.some((u) => u.startsWith('https://support.google.com/')), `${s} needs a Google source or google_source: none`);
     assert.ok(sec.card && sec.open_button?.length && sec.save_button, `${s} navigation`);
   }
 });
@@ -37,6 +38,7 @@ test('every question has label, control, map and verified: false', () => {
       assert.ok(e.control, `${s}.${q} control`);
       assert.ok(e.map, `${s}.${q} map`);
       assert.equal(e.verified, false, `${s}.${q} verified`);
+      assert.ok(['google_help', 'third_party', 'guessed'].includes(e.label_source), `${s}.${q} label_source`);
     }
   }
 });
