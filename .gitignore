@@ -3,13 +3,14 @@ node_modules/
 # Credentials and keys (never commit)
 *service-account*.json
 *-key.json
-keys/
+*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f].json
+/keys/
 .env
 .env.*
 
 # Browser profiles and Playwright sessions
 *.storage-state.json
+storageState.json
+*storageState*.json
 .auth/
-browser-profile/
-profile/
 .playwright-mcp/

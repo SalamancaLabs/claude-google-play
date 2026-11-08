@@ -11,5 +11,6 @@ Drafts `play/app-content.yaml` from the app repo, then verifies and applies the 
 
 1. **Draft** - Not implemented yet.
 2. **Review** - Not implemented yet.
-3. **Verify** (read-only) - Not implemented yet.
-4. **Apply** (Data safety via the `applications.dataSafety` API; other sections via the Playwright MCP, with owner approval before saving) - Not implemented yet.
+3. **Apply** (Data safety via the `applications.dataSafety` API; other sections via the Playwright MCP, with owner approval before saving) - Not implemented yet.
+
+A separate read-only **Verify** run compares the live Console answers with the YAML - Not implemented yet.
