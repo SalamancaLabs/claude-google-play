@@ -16,7 +16,7 @@ export const MISSING_MAP_MESSAGE =
  * @property {string} [response_id] Play response ID, e.g. "PSL_APPROX_LOCATION". Omit for single-cell questions.
  * @property {string|string[]} [from] Dotted path(s) into the app-content document, e.g. "sections.data_safety.security.encrypted_in_transit.value".
  *   With several paths, the first defined value is used (or, with `when`, any path matching counts as a hit).
- * @property {boolean} [blank]      Cell is always empty (question deliberately not modelled). Use instead of `from`.
+ * @property {boolean} [blank]      Cell is always empty (question deliberately not modelled, e.g. PSL_UPI_BADGE_OPT_IN: UPI = Unified Payments Interface, India only). Use instead of `from`.
  * @property {*} [when]             Choice row: the cell is "true" when the resolved value equals it (or, for arrays, includes it), else `otherwise`.
  * @property {string} [value]       Fixed text written on a `when` match instead of "true".
  * @property {string} [otherwise]   Text written when `when` does not match. Default blank (Google leaves unselected choices blank).

@@ -83,7 +83,7 @@
         },
         "data_safety": {
           "type": "object", "additionalProperties": false, "required": ["collects_or_shares_user_data"],
-          "description": "data_types and security are required when collects_or_shares_user_data is true and forbidden when it is false. The other answers are optional and left blank in the Play form when absent.",
+          "description": "data_types and security are required when collects_or_shares_user_data is true and forbidden when it is false. The other answers are optional and left blank in the Play form when absent. Not modelled: the UPI badge question (PSL_UPI_BADGE_OPT_IN, Unified Payments Interface, India only); its CSV row is always blank.",
           "properties": {
             "collects_or_shares_user_data": { "$ref": "#/$defs/bool_answer" },
             "data_types": { "$ref": "#/$defs/data_types" },
