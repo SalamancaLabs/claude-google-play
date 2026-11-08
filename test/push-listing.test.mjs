@@ -187,3 +187,31 @@ test('explainApiError: no status -> bare message; ENOENT is not a status', () =>
   assert.equal(explainApiError(Object.assign(new Error('socket hang up'), { code: 'ENOENT' }), 'p'), 'socket hang up');
   assert.match(explainApiError({ code: 403, message: 'API has not been used in project 1' }, 'p'), /not enabled.*setup.md step 1/);
 });
+
+test('new locale: no images.list, reports uploads; apply creates listing before upload', async () => {
+  const dir = setup();
+  const pub = fake({ listings: [] });
+  const listed = [];
+  pub.edits.images.list = async (p) => { listed.push(p.language); return { data: { images: [] } }; };
+  const logs = [];
+  await run(args(dir, ['--apply']), deps(pub, { log: (m) => logs.push(m) }));
+  assert.deepEqual(listed, []);
+  assert.match(logs.join('\n'), /en-US: phoneScreenshots: replace \(0 on Play -> 2 local\)/);
+  const i = pub.calls.indexOf('listings.update:en-US');
+  const j = pub.calls.indexOf('upload:phoneScreenshots');
+  assert.ok(i >= 0 && i < j);
+  assert.ok(!pub.calls.includes('deleteall:phoneScreenshots'));
+});
+
+test('images.list 404 for an existing locale is tolerated', async () => {
+  const dir = setup();
+  const pub = fake({ listings: [remoteOf(dir, 'en-US')] });
+  pub.edits.images.list = async () => { throw Object.assign(new Error("Listing for language 'en-US' not found"), { code: 404 }); };
+  assert.equal(await run(args(dir), deps(pub)), 0);
+});
+
+test('explainApiError: listing 404 is not blamed on the package name', () => {
+  const m = explainApiError({ code: 404, message: "Listing for language 'de-DE' not found" }, 'p');
+  assert.match(m, /locale listing does not exist/);
+  assert.match(explainApiError({ code: 404, message: 'Package not found' }, 'p'), /package name/);
+});

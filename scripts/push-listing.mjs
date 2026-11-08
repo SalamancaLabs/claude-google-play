@@ -129,14 +129,22 @@ export async function run(argv, deps = {}) {
         for (const type of IMAGE_TYPES) {
           const files = localImages(o.dir, locale, type, (m) => err(`warning: ${m}`));
           if (!files.length) continue;
-          const { data: id } = await publisher.edits.images.list({ ...base, language: locale, imageType: type });
-          const rimgs = id?.images ?? [];
+          let rimgs = [];
+          if (rem) {
+            try {
+              const { data: id } = await publisher.edits.images.list({ ...base, language: locale, imageType: type });
+              rimgs = id?.images ?? [];
+            } catch (e) {
+              // A listing that vanished or never had images: treat as empty, not fatal.
+              if (Number(e?.response?.status ?? e?.status ?? e?.code) !== 404) throw e;
+            }
+          }
           const same = rimgs.length === files.length && files.every((f, i) => rimgs[i].sha256 === f.sha);
           if (same) { log(`${locale}: ${type}: unchanged (${files.length})`); continue; }
           log(`${locale}: ${type}: replace (${rimgs.length} on Play -> ${files.length} local)`);
           summary.imageTypesChanged++;
           work.push(async () => {
-            await publisher.edits.images.deleteall({ ...base, language: locale, imageType: type });
+            if (rem) await publisher.edits.images.deleteall({ ...base, language: locale, imageType: type });
             for (const f of files) {
               await publisher.edits.images.upload({
                 ...base, language: locale, imageType: type,

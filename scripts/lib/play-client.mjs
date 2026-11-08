@@ -29,6 +29,9 @@ export function explainApiError(err, packageName) {
   if (status === 401 || status === 403) {
     return `Play API denied access (${status}). The service account lacks access to this app; see docs/setup.md step 2. API said: ${apiMsg}`;
   }
+  if (status === 404 && /listing|language/i.test(apiMsg)) {
+    return `Play API: a locale listing does not exist yet (404). Create it with listings.update before images. API said: ${apiMsg}`;
+  }
   if (status === 404) {
     return `Play API: not found (404). Check that "${packageName}" is the right package name and the app exists in Play Console. API said: ${apiMsg}`;
   }
