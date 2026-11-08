@@ -13,9 +13,11 @@
     "test": "node --test",
     "check-listing": "node scripts/check-listing.mjs",
     "check-images": "node scripts/check-images.mjs",
-    "validate": "node scripts/validate.mjs"
+    "validate": "node scripts/validate.mjs",
+    "push-listing": "node scripts/push-listing.mjs"
   },
   "dependencies": {
+    "@googleapis/androidpublisher": "42.3.0",
     "ajv": "8.20.0",
     "yaml": "2.9.1"
   }

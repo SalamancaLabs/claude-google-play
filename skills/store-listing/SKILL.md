@@ -11,7 +11,7 @@ Drafts listing text per locale into `fastlane/metadata/android/<locale>/`, captu
 
 1. **Draft** - see below.
 2. **Screenshots** - see below.
-3. **Push** - Not implemented yet.
+3. **Push** - see below.
 
 ## Draft
 
@@ -50,3 +50,15 @@ Generates screenshots from the app itself into `fastlane/metadata/android/<local
 6. **Feature graphic (1024x500) and icon (512x512, 32-bit PNG, at most 1 MB)** as `featureGraphic.png` and `icon.png` in `images/`. Create them only when missing, and only from art the owner provides. Never invent branding.
 7. **Existing files.** Never overwrite existing images without the owner's approval.
 8. **Check.** From the app repo root, run `node "${CLAUDE_PLUGIN_ROOT}/scripts/check-images.mjs" fastlane/metadata/android --default <owner's default locale>` and fix every error. Report warnings to the owner (for example a locale missing a device type that the default locale has).
+
+## Push
+
+Pushes the listing text and images in `fastlane/metadata/android/` to Google Play through the Play Developer API. This is separate from app releases: it changes only the store listing and does not touch any release or track. It needs the service account from `docs/setup.md`.
+
+1. **Ask the owner** for the package name and the default locale. Do not guess them.
+2. **Dry run first.** From the app repo root, run `node "${CLAUDE_PLUGIN_ROOT}/scripts/push-listing.mjs" --package <pkg> --default <locale>`. Add `--text-only` to leave images out. The script checks the text and the images, then compares them with the listing on Google Play inside a draft edit that it always discards. A dry run changes nothing.
+3. **Show the output to the owner.** It lists, per locale, each changed text field, and per image type whether Google Play already has the same files (unchanged) or will be replaced. It also lists locales that exist only in the Play Console. The push leaves those untouched and never deletes a locale.
+4. **Only with the owner's explicit approval**, run the same command with `--apply`. The script then updates the changed locales, replaces the changed image sets (it deletes all images of that type, then uploads the local files in file-name order), validates the edit and commits it. If any step fails, it discards the edit and commits nothing.
+5. **Report the result** to the owner. If it fails, give the message from the script. A 403 means the service account needs access to the app (`docs/setup.md` step 2) or the Google Play Android Developer API is not enabled in its Google Cloud project.
+
+Never print or read the key file. Never run `--apply` without approval in this conversation.
