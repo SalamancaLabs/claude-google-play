@@ -25,8 +25,18 @@
           "type": "object", "additionalProperties": false, "required": ["all_functionality_available"],
           "properties": {
             "all_functionality_available": { "$ref": "#/$defs/bool_answer", "description": "true = no login or restriction blocks any feature" },
-            "access_instructions": { "$ref": "#/$defs/string_answer", "description": "Credentials or steps for reviewers. Omit when all functionality is available." }
-          }
+            "access_instructions": { "$ref": "#/$defs/string_answer", "description": "Credentials or steps for reviewers. Required when all_functionality_available is false, forbidden when true." }
+          },
+          "allOf": [
+            {
+              "if": { "required": ["all_functionality_available"], "properties": { "all_functionality_available": { "required": ["value"], "properties": { "value": { "const": false } } } } },
+              "then": { "required": ["access_instructions"] }
+            },
+            {
+              "if": { "required": ["all_functionality_available"], "properties": { "all_functionality_available": { "required": ["value"], "properties": { "value": { "const": true } } } } },
+              "then": { "properties": { "access_instructions": false } }
+            }
+          ]
         },
         "ads": {
           "type": "object", "additionalProperties": false, "required": ["contains_ads"],
@@ -36,8 +46,18 @@
           "type": "object", "additionalProperties": false, "required": ["uses_advertising_id", "purposes"],
           "properties": {
             "uses_advertising_id": { "$ref": "#/$defs/bool_answer" },
-            "purposes": { "$ref": "#/$defs/purpose_list_answer", "description": "Empty list when the advertising ID is not used" }
-          }
+            "purposes": { "$ref": "#/$defs/purpose_list_answer", "description": "Non-empty when the advertising ID is used; empty list when it is not" }
+          },
+          "allOf": [
+            {
+              "if": { "required": ["uses_advertising_id"], "properties": { "uses_advertising_id": { "required": ["value"], "properties": { "value": { "const": true } } } } },
+              "then": { "properties": { "purposes": { "properties": { "value": { "minItems": 1 } } } } }
+            },
+            {
+              "if": { "required": ["uses_advertising_id"], "properties": { "uses_advertising_id": { "required": ["value"], "properties": { "value": { "const": false } } } } },
+              "then": { "properties": { "purposes": { "properties": { "value": { "maxItems": 0 } } } } }
+            }
+          ]
         },
         "content_rating": {
           "type": "object", "additionalProperties": false, "required": ["category", "questionnaire"],
@@ -145,7 +165,7 @@
       "allOf": [{ "$ref": "#/$defs/answer" }, { "properties": { "value": { "type": ["boolean", "null"] } } }]
     },
     "string_answer": {
-      "allOf": [{ "$ref": "#/$defs/answer" }, { "properties": { "value": { "type": ["string", "null"] } } }]
+      "allOf": [{ "$ref": "#/$defs/answer" }, { "properties": { "value": { "type": ["string", "null"], "minLength": 1 } } }]
     },
     "scalar_answer": {
       "allOf": [{ "$ref": "#/$defs/answer" }, { "properties": { "value": { "type": ["boolean", "string", "null"] } } }]

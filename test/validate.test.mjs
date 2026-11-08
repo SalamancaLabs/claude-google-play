@@ -109,3 +109,35 @@ test('evidence item may cite both file and ticket', () => {
   doc.sections.ads.contains_ads.evidence = [{ note: 'nothing cited' }];
   assert.equal(validateAppContent(doc).ok, false);
 });
+
+test('app_access: instructions required when restricted, forbidden when open', () => {
+  const doc = load();
+  const aa = doc.sections.app_access;
+  aa.access_instructions = { value: 'user / pass', evidence: [{ owner: 'founder' }], status: 'confirmed' };
+  fails(doc, 'sections.app_access');
+  aa.all_functionality_available.value = false;
+  assert.deepEqual(validateAppContent(doc).errors, []);
+  delete aa.access_instructions;
+  fails(doc, 'sections.app_access');
+  aa.all_functionality_available = { value: null, evidence: [], status: 'needs_review', question: 'Is login needed?' };
+  assert.deepEqual(validateAppContent(doc).errors, []);
+});
+
+test('confirmed empty string fails', () => {
+  const doc = load();
+  doc.sections.content_rating.category.value = '';
+  fails(doc, 'sections.content_rating.category');
+});
+
+test('advertising_id: purposes required when used, empty when not', () => {
+  const doc = load();
+  const a = doc.sections.advertising_id;
+  a.purposes.value = ['advertising_or_marketing'];
+  fails(doc, 'sections.advertising_id');
+  a.uses_advertising_id.value = true;
+  assert.deepEqual(validateAppContent(doc).errors, []);
+  a.purposes.value = [];
+  fails(doc, 'sections.advertising_id');
+  a.uses_advertising_id = { value: null, evidence: [], status: 'needs_review', question: 'Does the SDK read the ID?' };
+  assert.deepEqual(validateAppContent(doc).errors, []);
+});
