@@ -26,10 +26,13 @@ key is valid.
 
 ## 3. Sign in to the Play Console once
 
-The browser steps use the Playwright MCP with a dedicated browser profile at
-`~/.local/share/google-play/profile`, separate from your everyday browser.
+The browser steps use the plugin's `google-play-browser` MCP server (Playwright
+MCP), with a dedicated browser profile at `~/.local/share/google-play/profile`,
+separate from your everyday browser. The plugin starts it for you, and it needs
+Node.js with `npx`.
 
-1. Run `/google-play:app-content` once. A browser window opens.
+1. Run `/google-play:app-content` once. The first browser step opens a browser
+   window and loads the Play Console.
 2. Sign in to your Google account by hand, including 2FA.
 3. Set the Play Console language to **English**. The skill finds forms by
    their English labels and checks the language before it fills anything.
