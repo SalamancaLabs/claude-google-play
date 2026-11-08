@@ -1,0 +1,14 @@
+{
+  "name": "claude-google-play",
+  "description": "Claude Code plugins for Google Play Console.",
+  "owner": {
+    "name": "SalamancaLabs"
+  },
+  "plugins": [
+    {
+      "name": "google-play",
+      "source": "./",
+      "description": "Fill in Google Play Console app content declarations and the store listing from evidence in your app's repo."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "name": "claude-google-play",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Claude Code plugin that fills in Google Play Console declarations and store listing.",
+  "license": "MIT",
+  "repository": "https://github.com/SalamancaLabs/claude-google-play",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}
