@@ -4,7 +4,7 @@ import { parse } from 'yaml';
 import { validateAppContent } from './validate.mjs';
 
 const DEFAULT_MAP = fileURLToPath(new URL('../schema/data-safety-csv-map.json', import.meta.url));
-const HEADER = ['Question ID (machine readable)', 'Response ID (machine readable)', 'Response value', 'Answer requirement', 'Human-friendly question label'];
+const HEADER = ['Question ID (machine readable)', 'Response (machine readable)', 'Response value', 'Answer requirement', 'Human-friendly question label'];
 
 export const MISSING_MAP_MESSAGE =
   'Data safety mapping table not found (schema/data-safety-csv-map.json). Export the Data safety CSV from Play Console → App content → Data safety → Export to CSV, then build the mapping.';
@@ -114,9 +114,11 @@ export async function run(argv, { getPublisher, explainApiError, out = console.l
   const args = { file: null, map: DEFAULT_MAP, current: null, apply: false, pkg: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
-    if (a === '--map') args.map = argv[++i];
-    else if (a === '--current') args.current = argv[++i];
-    else if (a === '--package') args.pkg = argv[++i];
+    if (a === '--map' || a === '--current' || a === '--package') {
+      const val = argv[++i];
+      if (val === undefined || val.startsWith('--')) { err(`${a} needs a value`); return 1; }
+      if (a === '--map') args.map = val; else if (a === '--current') args.current = val; else args.pkg = val;
+    }
     else if (a === '--apply') args.apply = true;
     else if (!args.file && !a.startsWith('--')) args.file = a;
     else { err(`unknown argument: ${a}`); return 2; }
@@ -140,11 +142,16 @@ export async function run(argv, { getPublisher, explainApiError, out = console.l
   catch (e) { err(e.message); return e.code === 'MAP_MISSING' ? 3 : 1; }
 
   const csv = buildCsv(doc, map);
+  let current = null;
+  if (args.current) {
+    try { current = readFileSync(args.current, 'utf8'); }
+    catch (e) { err(`Cannot read --current file ${args.current}: ${e.code ?? e.message}`); return 1; }
+  }
 
   if (!args.apply) {
     out(csv);
-    if (args.current) {
-      const d = diffCsv(readFileSync(args.current, 'utf8'), csv);
+    if (current !== null) {
+      const d = diffCsv(current, csv);
       out(`# diff vs ${args.current}: ${d.added.length} added, ${d.removed.length} removed, ${d.changed.length} changed`);
       for (const r of d.added) out(`+ ${label(r)} = ${r.value}`);
       for (const r of d.removed) out(`- ${label(r)} = ${r.value}`);

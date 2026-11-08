@@ -82,7 +82,7 @@ test('--apply posts through the injected publisher', async () => {
   assert.equal(code, 0);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].packageName, parse(readFileSync(EXAMPLE, 'utf8')).package_name);
-  assert.ok(calls[0].requestBody.safetyLabels.startsWith('Question ID'));
+  assert.ok(calls[0].requestBody.safetyLabels.startsWith('Question ID (machine readable),Response (machine readable),'));
   const c2 = capture();
   await run([writeDoc(reviewed()), '--map', MAP, '--apply', '--package', 'com.override.app'], { ...c2, getPublisher: async () => publisher });
   assert.equal(calls[1].packageName, 'com.override.app');
@@ -94,4 +94,13 @@ test('--apply routes API errors through explainApiError', async () => {
   const code = await run([writeDoc(reviewed()), '--map', MAP, '--apply'], { ...c, getPublisher: async () => publisher, explainApiError: () => 'EXPLAINED' });
   assert.equal(code, 1);
   assert.deepEqual(c.e, ['EXPLAINED']);
+});
+
+test('missing flag values and unreadable files exit 1 cleanly', async () => {
+  const f = writeDoc(reviewed());
+  for (const argv of [[f, '--map'], [f, '--map', MAP, '--current'], [f, '--map', MAP, '--current', join(tmp, 'absent.csv')], [f, '--map', tmp]]) {
+    const c = capture();
+    assert.equal(await run(argv, c), 1, argv.join(' '));
+    assert.equal(c.e.length >= 1, true);
+  }
 });

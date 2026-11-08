@@ -11,6 +11,11 @@ service account. Keep its key outside any repo, readable only by you:
     mv path/to/play-service-account.json ~/keys/
     chmod 600 ~/keys/play-service-account.json
 
+Before the key works, enable the **Google Play Android Developer API** in the
+Google Cloud project that owns the service account (APIs & Services →
+Library). Until it is enabled, calls fail with a 403 "API has not been used in
+project … or it is disabled".
+
 Point the plugin at it. Add this to your shell profile so every session has it:
 
     export GOOGLE_APPLICATION_CREDENTIALS=~/keys/play-service-account.json
