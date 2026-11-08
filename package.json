@@ -12,6 +12,7 @@
   "scripts": {
     "test": "node --test",
     "check-listing": "node scripts/check-listing.mjs",
+    "check-images": "node scripts/check-images.mjs",
     "validate": "node scripts/validate.mjs"
   },
   "dependencies": {
