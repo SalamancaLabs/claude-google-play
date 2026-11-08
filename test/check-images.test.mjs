@@ -170,3 +170,10 @@ test('feature graphic png and jpg both present warns', () => {
   const r = checkImages(build({ ...phones(2, 360, 640), 'featureGraphic.png': png(1024, 500), 'featureGraphic.jpg': jpeg(1024, 500) }));
   assert.ok(r.warnings.some((w) => /keep one/.test(w.message)));
 });
+
+test('tablet 16:10 warns, 16:9 does not', () => {
+  const r = checkImages(build({ ...phones(2, 360, 640), ...tablets(4, 2560, 1600) }));
+  assert.ok(r.warnings.some((w) => /16:9/.test(w.message)));
+  const ok = checkImages(build({ ...phones(2, 360, 640), ...tablets(4, 3840, 2160) }));
+  assert.deepEqual(ok.warnings, []);
+});

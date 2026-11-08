@@ -123,7 +123,7 @@ export function checkImages(dir = 'fastlane/metadata/android', { defaultLocale }
         } else if (TABLETS.has(type)) {
           if (Math.min(w, h) < TABLET_MIN) err(f, `${w}x${h}; tablet screenshots must be at least ${TABLET_MIN} px per side`);
           if (Math.max(w, h) > TABLET_MAX) err(f, `${w}x${h}; tablet screenshots must be at most ${TABLET_MAX} px per side`);
-          if (Math.abs(Math.max(w, h) * 9 - Math.min(w, h) * 16) > Math.max(w, h)) {
+          if (Math.abs(Math.max(w, h) * 9 - Math.min(w, h) * 16) > Math.max(w, h) * 0.16) {
             warn(f, `${w}x${h}; tablet screenshots should be 16:9 or 9:16`);
           }
         } else {
