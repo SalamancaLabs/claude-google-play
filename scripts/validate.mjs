@@ -35,7 +35,9 @@ export function validateAppContent(obj) {
       if (!errors.some((e) => e.path === p)) errors.push({ path: p, message: 'status "confirmed" requires at least one evidence item' });
     }
   }
-  return { ok: errors.length === 0, errors };
+  const seen = new Set();
+  const unique = errors.filter((e) => !seen.has(e.path + '\0' + e.message) && seen.add(e.path + '\0' + e.message));
+  return { ok: unique.length === 0, errors: unique };
 }
 
 export function countStatuses(obj) {

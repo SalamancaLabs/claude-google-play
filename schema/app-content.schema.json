@@ -2,1303 +2,318 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/SalamancaLabs/claude-google-play/schema/app-content.schema.json",
   "title": "Play Console App content answers",
+  "description": "Every Play Console App content answer is an 'answer': a value, the evidence behind it, and a status. 'confirmed' needs at least one evidence item and a non-null value; 'needs_review' may have a null value and carries the open 'question'. Keys are stable snake_case per question, never Console label text.",
   "type": "object",
-  "required": [
-    "package_name",
-    "app_name",
-    "sections"
-  ],
+  "required": ["package_name", "app_name", "sections"],
   "additionalProperties": false,
   "properties": {
-    "package_name": {
-      "type": "string",
-      "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$"
-    },
-    "app_name": {
-      "type": "string",
-      "minLength": 1
-    },
+    "package_name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$" },
+    "app_name": { "type": "string", "minLength": 1 },
     "sections": {
       "type": "object",
-      "required": [
-        "privacy_policy",
-        "app_access",
-        "ads",
-        "advertising_id",
-        "content_rating",
-        "target_audience",
-        "news_app",
-        "data_safety",
-        "government_app",
-        "financial_features",
-        "health_apps"
-      ],
       "additionalProperties": false,
+      "required": [
+        "privacy_policy", "app_access", "ads", "advertising_id", "content_rating", "target_audience",
+        "news_app", "data_safety", "government_app", "financial_features", "health_apps"
+      ],
       "properties": {
         "privacy_policy": {
-          "type": "object",
-          "required": [
-            "url"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "url": {
-              "$ref": "#/$defs/leaf_1",
-              "description": "Public HTTPS URL of the privacy policy"
-            }
-          }
+          "type": "object", "additionalProperties": false, "required": ["url"],
+          "properties": { "url": { "$ref": "#/$defs/url_answer" } }
         },
         "app_access": {
-          "type": "object",
-          "required": [
-            "all_functionality_available",
-            "access_instructions"
-          ],
-          "additionalProperties": false,
+          "type": "object", "additionalProperties": false, "required": ["all_functionality_available"],
           "properties": {
-            "all_functionality_available": {
-              "$ref": "#/$defs/leaf_2",
-              "description": "true = no login or restriction blocks any feature"
-            },
-            "access_instructions": {
-              "$ref": "#/$defs/leaf_3",
-              "description": "Credentials/steps for reviewers when functionality is restricted; null when not needed"
-            }
+            "all_functionality_available": { "$ref": "#/$defs/bool_answer", "description": "true = no login or restriction blocks any feature" },
+            "access_instructions": { "$ref": "#/$defs/string_answer", "description": "Credentials or steps for reviewers. Omit when all functionality is available." }
           }
         },
         "ads": {
-          "type": "object",
-          "required": [
-            "contains_ads"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "contains_ads": {
-              "$ref": "#/$defs/leaf_2"
-            }
-          }
+          "type": "object", "additionalProperties": false, "required": ["contains_ads"],
+          "properties": { "contains_ads": { "$ref": "#/$defs/bool_answer" } }
         },
         "advertising_id": {
-          "type": "object",
-          "required": [
-            "uses_advertising_id",
-            "purposes"
-          ],
-          "additionalProperties": false,
+          "type": "object", "additionalProperties": false, "required": ["uses_advertising_id", "purposes"],
           "properties": {
-            "uses_advertising_id": {
-              "$ref": "#/$defs/leaf_2"
-            },
-            "purposes": {
-              "$ref": "#/$defs/leaf_4",
-              "description": "Required when uses_advertising_id is true"
-            }
+            "uses_advertising_id": { "$ref": "#/$defs/bool_answer" },
+            "purposes": { "$ref": "#/$defs/purpose_list_answer", "description": "Empty list when the advertising ID is not used" }
           }
         },
         "content_rating": {
-          "type": "object",
-          "required": [
-            "category",
-            "questionnaire"
-          ],
-          "additionalProperties": false,
+          "type": "object", "additionalProperties": false, "required": ["category", "questionnaire"],
           "properties": {
-            "category": {
-              "$ref": "#/$defs/leaf_5",
-              "description": "IARC questionnaire category chosen in the Console (free text: the category list is not confirmed from an official source)"
-            },
+            "category": { "$ref": "#/$defs/string_answer", "description": "IARC questionnaire category chosen in the Console (free text; no official category list confirmed)" },
             "questionnaire": {
               "type": "object",
-              "description": "IARC questions vary by category; one entry per question, snake_case key",
-              "additionalProperties": {
-                "$ref": "#/$defs/leaf_6"
-              }
+              "description": "One answer per IARC question, snake_case key. Questions vary by category.",
+              "additionalProperties": { "$ref": "#/$defs/scalar_answer" }
             }
           }
         },
         "target_audience": {
-          "type": "object",
-          "required": [
-            "age_groups",
-            "appeals_to_children"
-          ],
-          "additionalProperties": false,
+          "type": "object", "additionalProperties": false, "required": ["age_groups", "appeals_to_children"],
           "properties": {
-            "age_groups": {
-              "$ref": "#/$defs/leaf_7"
-            },
-            "appeals_to_children": {
-              "$ref": "#/$defs/leaf_2"
-            }
+            "age_groups": { "$ref": "#/$defs/age_group_list_answer" },
+            "appeals_to_children": { "$ref": "#/$defs/bool_answer" }
           }
         },
         "news_app": {
-          "type": "object",
-          "required": [
-            "is_news_app"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "is_news_app": {
-              "$ref": "#/$defs/leaf_2"
-            }
-          }
+          "type": "object", "additionalProperties": false, "required": ["is_news_app"],
+          "properties": { "is_news_app": { "$ref": "#/$defs/bool_answer" } }
         },
         "data_safety": {
-          "type": "object",
-          "required": [
-            "collects_or_shares_user_data",
-            "data_types",
-            "security"
-          ],
-          "additionalProperties": false,
+          "type": "object", "additionalProperties": false, "required": ["collects_or_shares_user_data"],
+          "description": "data_types and security are required when collects_or_shares_user_data is true and forbidden when it is false.",
           "properties": {
-            "collects_or_shares_user_data": {
-              "$ref": "#/$defs/leaf_2"
-            },
-            "data_types": {
-              "type": "object",
-              "required": [
-                "location",
-                "personal_info",
-                "financial_info",
-                "health_and_fitness",
-                "messages",
-                "photos_and_videos",
-                "audio",
-                "files_and_docs",
-                "calendar",
-                "contacts",
-                "app_activity",
-                "web_browsing",
-                "app_info_and_performance",
-                "device_or_other_ids"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "location": {
-                  "type": "object",
-                  "required": [
-                    "approximate_location",
-                    "precise_location"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "approximate_location": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "precise_location": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "personal_info": {
-                  "type": "object",
-                  "required": [
-                    "name",
-                    "email_address",
-                    "user_ids",
-                    "address",
-                    "phone_number",
-                    "race_and_ethnicity",
-                    "political_or_religious_beliefs",
-                    "sexual_orientation",
-                    "other_info"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "name": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "email_address": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "user_ids": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "address": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "phone_number": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "race_and_ethnicity": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "political_or_religious_beliefs": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "sexual_orientation": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "other_info": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "financial_info": {
-                  "type": "object",
-                  "required": [
-                    "user_payment_info",
-                    "purchase_history",
-                    "credit_score",
-                    "other_financial_info"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "user_payment_info": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "purchase_history": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "credit_score": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "other_financial_info": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "health_and_fitness": {
-                  "type": "object",
-                  "required": [
-                    "health_info",
-                    "fitness_info"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "health_info": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "fitness_info": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "messages": {
-                  "type": "object",
-                  "required": [
-                    "emails",
-                    "sms_or_mms",
-                    "other_in_app_messages"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "emails": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "sms_or_mms": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "other_in_app_messages": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "photos_and_videos": {
-                  "type": "object",
-                  "required": [
-                    "photos",
-                    "videos"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "photos": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "videos": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "audio": {
-                  "type": "object",
-                  "required": [
-                    "voice_or_sound_recordings",
-                    "music_files",
-                    "other_audio_files"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "voice_or_sound_recordings": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "music_files": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "other_audio_files": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "files_and_docs": {
-                  "type": "object",
-                  "required": [
-                    "files_and_docs"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "files_and_docs": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "calendar": {
-                  "type": "object",
-                  "required": [
-                    "calendar_events"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "calendar_events": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "contacts": {
-                  "type": "object",
-                  "required": [
-                    "contacts"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "contacts": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "app_activity": {
-                  "type": "object",
-                  "required": [
-                    "app_interactions",
-                    "in_app_search_history",
-                    "installed_apps",
-                    "other_user_generated_content",
-                    "other_actions"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "app_interactions": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "in_app_search_history": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "installed_apps": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "other_user_generated_content": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "other_actions": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "web_browsing": {
-                  "type": "object",
-                  "required": [
-                    "web_browsing_history"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "web_browsing_history": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "app_info_and_performance": {
-                  "type": "object",
-                  "required": [
-                    "crash_logs",
-                    "diagnostics",
-                    "other_app_performance_data"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "crash_logs": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "diagnostics": {
-                      "$ref": "#/$defs/leaf_0"
-                    },
-                    "other_app_performance_data": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                },
-                "device_or_other_ids": {
-                  "type": "object",
-                  "required": [
-                    "device_or_other_ids"
-                  ],
-                  "additionalProperties": false,
-                  "properties": {
-                    "device_or_other_ids": {
-                      "$ref": "#/$defs/leaf_0"
-                    }
-                  }
-                }
-              }
-            },
+            "collects_or_shares_user_data": { "$ref": "#/$defs/bool_answer" },
+            "data_types": { "$ref": "#/$defs/data_types" },
             "security": {
-              "type": "object",
-              "required": [
-                "encrypted_in_transit",
-                "deletion_request_mechanism"
-              ],
-              "additionalProperties": false,
+              "type": "object", "additionalProperties": false, "required": ["encrypted_in_transit", "deletion_request_mechanism"],
               "properties": {
-                "encrypted_in_transit": {
-                  "$ref": "#/$defs/leaf_2"
-                },
-                "deletion_request_mechanism": {
-                  "$ref": "#/$defs/leaf_8",
-                  "description": "How users can request data deletion; web_link/in_app need a URL/flow in evidence"
-                }
+                "encrypted_in_transit": { "$ref": "#/$defs/bool_answer" },
+                "deletion_request_mechanism": { "$ref": "#/$defs/deletion_mechanism_answer" }
               }
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": { "required": ["collects_or_shares_user_data"], "properties": { "collects_or_shares_user_data": { "properties": { "value": { "const": true } }, "required": ["value"] } } },
+              "then": { "required": ["data_types", "security"] }
+            },
+            {
+              "if": { "required": ["collects_or_shares_user_data"], "properties": { "collects_or_shares_user_data": { "properties": { "value": { "const": false } }, "required": ["value"] } } },
+              "then": { "properties": { "data_types": false, "security": false } }
+            }
+          ]
         },
         "government_app": {
-          "type": "object",
-          "required": [
-            "is_government_app"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "is_government_app": {
-              "$ref": "#/$defs/leaf_2"
-            }
-          }
+          "type": "object", "additionalProperties": false, "required": ["is_government_app"],
+          "properties": { "is_government_app": { "$ref": "#/$defs/bool_answer" } }
         },
         "financial_features": {
-          "type": "object",
-          "required": [
-            "features"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "features": {
-              "$ref": "#/$defs/leaf_9",
-              "description": "Financial features offered (e.g. loans, banking, crypto); empty list = none"
-            }
-          }
+          "type": "object", "additionalProperties": false, "required": ["features"],
+          "properties": { "features": { "$ref": "#/$defs/string_list_answer", "description": "Financial features offered (e.g. loans, banking, crypto). Empty list = none." } }
         },
         "health_apps": {
-          "type": "object",
-          "required": [
-            "features"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "features": {
-              "$ref": "#/$defs/leaf_9",
-              "description": "Health features offered; empty list = none"
-            }
-          }
+          "type": "object", "additionalProperties": false, "required": ["features"],
+          "properties": { "features": { "$ref": "#/$defs/string_list_answer", "description": "Health features offered. Empty list = none." } }
         }
       }
     }
   },
   "$defs": {
-    "leaf_0": {
+    "evidence_item": {
+      "description": "One source backing an answer. Give at least one of file, dependency, ticket, owner.",
       "type": "object",
-      "required": [
-        "value",
-        "evidence",
-        "status"
-      ],
       "additionalProperties": false,
       "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "type": "object",
-              "required": [
-                "collected",
-                "shared"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "collected": {
-                  "type": "boolean"
-                },
-                "shared": {
-                  "type": "boolean"
-                },
-                "ephemeral": {
-                  "type": "boolean"
-                },
-                "required": {
-                  "type": "boolean",
-                  "description": "true = collection is required, false = users can choose"
-                },
-                "collection_purposes": {
-                  "type": "array",
-                  "items": {
-                    "enum": [
-                      "app_functionality",
-                      "analytics",
-                      "developer_communications",
-                      "advertising_or_marketing",
-                      "fraud_prevention_security_compliance",
-                      "personalization",
-                      "account_management"
-                    ]
-                  },
-                  "uniqueItems": true
-                },
-                "sharing_purposes": {
-                  "type": "array",
-                  "items": {
-                    "enum": [
-                      "app_functionality",
-                      "analytics",
-                      "developer_communications",
-                      "advertising_or_marketing",
-                      "fraud_prevention_security_compliance",
-                      "personalization",
-                      "account_management"
-                    ]
-                  },
-                  "uniqueItems": true
-                }
-              }
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/evidence"
-          }
-        },
-        "status": {
-          "enum": [
-            "confirmed",
-            "needs_review"
-          ]
-        },
-        "question": {
-          "type": "string",
-          "minLength": 1
-        }
+        "file": { "type": "string", "minLength": 1, "description": "Repo-relative path" },
+        "dependency": { "type": "string", "minLength": 1 },
+        "ticket": { "type": "string", "minLength": 1 },
+        "owner": { "type": "string", "minLength": 1, "description": "Statement from the app owner" },
+        "note": { "type": "string" }
       },
-      "if": {
-        "properties": {
-          "status": {
-            "const": "confirmed"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "value": {
-            "type": "object",
-            "required": [
-              "collected",
-              "shared"
-            ],
-            "additionalProperties": false,
-            "properties": {
-              "collected": {
-                "type": "boolean"
-              },
-              "shared": {
-                "type": "boolean"
-              },
-              "ephemeral": {
-                "type": "boolean"
-              },
-              "required": {
-                "type": "boolean",
-                "description": "true = collection is required, false = users can choose"
-              },
-              "collection_purposes": {
-                "type": "array",
-                "items": {
-                  "enum": [
-                    "app_functionality",
-                    "analytics",
-                    "developer_communications",
-                    "advertising_or_marketing",
-                    "fraud_prevention_security_compliance",
-                    "personalization",
-                    "account_management"
-                  ]
-                },
-                "uniqueItems": true
-              },
-              "sharing_purposes": {
-                "type": "array",
-                "items": {
-                  "enum": [
-                    "app_functionality",
-                    "analytics",
-                    "developer_communications",
-                    "advertising_or_marketing",
-                    "fraud_prevention_security_compliance",
-                    "personalization",
-                    "account_management"
-                  ]
-                },
-                "uniqueItems": true
-              }
-            }
-          },
-          "evidence": {
-            "minItems": 1
-          }
-        }
-      }
+      "anyOf": [
+        { "required": ["file"] }, { "required": ["dependency"] }, { "required": ["ticket"] }, { "required": ["owner"] }
+      ]
     },
-    "leaf_1": {
+
+    "answer": {
+      "description": "Base shape of every answer leaf. Typed variants below narrow 'value'.",
       "type": "object",
-      "required": [
-        "value",
-        "evidence",
-        "status"
-      ],
       "additionalProperties": false,
+      "required": ["value", "evidence", "status"],
       "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "type": "string",
-              "pattern": "^https://[^\\s]+$"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/evidence"
-          }
-        },
-        "status": {
-          "enum": [
-            "confirmed",
-            "needs_review"
-          ]
-        },
-        "question": {
-          "type": "string",
-          "minLength": 1
-        }
+        "value": {},
+        "evidence": { "type": "array", "items": { "$ref": "#/$defs/evidence_item" } },
+        "status": { "enum": ["confirmed", "needs_review"] },
+        "question": { "type": "string", "minLength": 1, "description": "Open question, for needs_review" }
       },
-      "if": {
-        "properties": {
-          "status": {
-            "const": "confirmed"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "value": {
-            "type": "string",
-            "pattern": "^https://[^\\s]+$"
-          },
-          "evidence": {
-            "minItems": 1
-          }
-        }
-      }
+      "if": { "required": ["status"], "properties": { "status": { "const": "confirmed" } } },
+      "then": { "properties": { "evidence": { "minItems": 1 }, "value": { "not": { "type": "null" } } } }
     },
-    "leaf_2": {
-      "type": "object",
-      "required": [
-        "value",
-        "evidence",
-        "status"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/evidence"
-          }
-        },
-        "status": {
-          "enum": [
-            "confirmed",
-            "needs_review"
-          ]
-        },
-        "question": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "if": {
-        "properties": {
-          "status": {
-            "const": "confirmed"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "value": {
-            "type": "boolean"
-          },
-          "evidence": {
-            "minItems": 1
-          }
-        }
-      }
+
+    "purpose": {
+      "enum": [
+        "app_functionality", "analytics", "developer_communications", "advertising_or_marketing",
+        "fraud_prevention_security_compliance", "personalization", "account_management"
+      ]
     },
-    "leaf_3": {
-      "type": "object",
-      "required": [
-        "value",
-        "evidence",
-        "status"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/evidence"
-          }
-        },
-        "status": {
-          "enum": [
-            "confirmed",
-            "needs_review"
-          ]
-        },
-        "question": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "if": {
-        "properties": {
-          "status": {
-            "const": "confirmed"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "value": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "evidence": {
-            "minItems": 1
-          }
-        }
-      }
+    "age_group": { "enum": ["5_and_under", "6_8", "9_12", "13_15", "16_17", "18_and_over"] },
+
+    "bool_answer": {
+      "allOf": [{ "$ref": "#/$defs/answer" }, { "properties": { "value": { "type": ["boolean", "null"] } } }]
     },
-    "leaf_4": {
-      "type": "object",
-      "required": [
-        "value",
-        "evidence",
-        "status"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "enum": [
-                  "app_functionality",
-                  "analytics",
-                  "developer_communications",
-                  "advertising_or_marketing",
-                  "fraud_prevention_security_compliance",
-                  "personalization",
-                  "account_management"
-                ]
-              },
-              "uniqueItems": true
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/evidence"
-          }
-        },
-        "status": {
-          "enum": [
-            "confirmed",
-            "needs_review"
-          ]
-        },
-        "question": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "if": {
-        "properties": {
-          "status": {
-            "const": "confirmed"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "value": {
-            "type": "array",
-            "items": {
-              "enum": [
-                "app_functionality",
-                "analytics",
-                "developer_communications",
-                "advertising_or_marketing",
-                "fraud_prevention_security_compliance",
-                "personalization",
-                "account_management"
-              ]
-            },
-            "uniqueItems": true
-          },
-          "evidence": {
-            "minItems": 1
-          }
-        }
-      }
+    "string_answer": {
+      "allOf": [{ "$ref": "#/$defs/answer" }, { "properties": { "value": { "type": ["string", "null"] } } }]
     },
-    "leaf_5": {
-      "type": "object",
-      "required": [
-        "value",
-        "evidence",
-        "status"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "type": "string",
-              "minLength": 1
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/evidence"
-          }
-        },
-        "status": {
-          "enum": [
-            "confirmed",
-            "needs_review"
-          ]
-        },
-        "question": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "if": {
-        "properties": {
-          "status": {
-            "const": "confirmed"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "value": {
-            "type": "string",
-            "minLength": 1
-          },
-          "evidence": {
-            "minItems": 1
-          }
-        }
-      }
+    "scalar_answer": {
+      "allOf": [{ "$ref": "#/$defs/answer" }, { "properties": { "value": { "type": ["boolean", "string", "null"] } } }]
     },
-    "leaf_6": {
-      "type": "object",
-      "required": [
-        "value",
-        "evidence",
-        "status"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "type": [
-                "boolean",
-                "string"
-              ]
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/evidence"
-          }
-        },
-        "status": {
-          "enum": [
-            "confirmed",
-            "needs_review"
-          ]
-        },
-        "question": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "if": {
-        "properties": {
-          "status": {
-            "const": "confirmed"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "value": {
-            "type": [
-              "boolean",
-              "string"
-            ]
-          },
-          "evidence": {
-            "minItems": 1
-          }
-        }
-      }
+    "url_answer": {
+      "allOf": [{ "$ref": "#/$defs/answer" }, { "properties": { "value": { "type": ["string", "null"], "pattern": "^https://[^\\s]+$" } } }]
     },
-    "leaf_7": {
-      "type": "object",
-      "required": [
-        "value",
-        "evidence",
-        "status"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "enum": [
-                  "5_and_under",
-                  "6_8",
-                  "9_12",
-                  "13_15",
-                  "16_17",
-                  "18_and_over"
-                ]
-              },
-              "uniqueItems": true
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/evidence"
-          }
-        },
-        "status": {
-          "enum": [
-            "confirmed",
-            "needs_review"
-          ]
-        },
-        "question": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "if": {
-        "properties": {
-          "status": {
-            "const": "confirmed"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "value": {
-            "type": "array",
-            "items": {
-              "enum": [
-                "5_and_under",
-                "6_8",
-                "9_12",
-                "13_15",
-                "16_17",
-                "18_and_over"
-              ]
-            },
-            "uniqueItems": true
-          },
-          "evidence": {
-            "minItems": 1
-          }
-        }
-      }
+    "string_list_answer": {
+      "allOf": [
+        { "$ref": "#/$defs/answer" },
+        { "properties": { "value": { "type": ["array", "null"], "items": { "type": "string", "minLength": 1 }, "uniqueItems": true } } }
+      ]
     },
-    "leaf_8": {
-      "type": "object",
-      "required": [
-        "value",
-        "evidence",
-        "status"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "enum": [
-                "in_app",
-                "web_link",
-                "none"
-              ]
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/evidence"
-          }
-        },
-        "status": {
-          "enum": [
-            "confirmed",
-            "needs_review"
-          ]
-        },
-        "question": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "if": {
-        "properties": {
-          "status": {
-            "const": "confirmed"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "value": {
-            "enum": [
-              "in_app",
-              "web_link",
-              "none"
-            ]
-          },
-          "evidence": {
-            "minItems": 1
-          }
-        }
-      }
+    "purpose_list_answer": {
+      "allOf": [
+        { "$ref": "#/$defs/answer" },
+        { "properties": { "value": { "type": ["array", "null"], "items": { "$ref": "#/$defs/purpose" }, "uniqueItems": true } } }
+      ]
     },
-    "leaf_9": {
-      "type": "object",
-      "required": [
-        "value",
-        "evidence",
-        "status"
-      ],
-      "additionalProperties": false,
-      "properties": {
-        "value": {
-          "anyOf": [
-            {
-              "type": "array",
-              "items": {
-                "type": "string",
-                "minLength": 1
-              },
-              "uniqueItems": true
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "evidence": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/evidence"
-          }
-        },
-        "status": {
-          "enum": [
-            "confirmed",
-            "needs_review"
-          ]
-        },
-        "question": {
-          "type": "string",
-          "minLength": 1
-        }
-      },
-      "if": {
-        "properties": {
-          "status": {
-            "const": "confirmed"
-          }
-        },
-        "required": [
-          "status"
-        ]
-      },
-      "then": {
-        "properties": {
-          "value": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "minLength": 1
-            },
-            "uniqueItems": true
-          },
-          "evidence": {
-            "minItems": 1
-          }
-        }
-      }
+    "age_group_list_answer": {
+      "allOf": [
+        { "$ref": "#/$defs/answer" },
+        { "properties": { "value": { "type": ["array", "null"], "items": { "$ref": "#/$defs/age_group" }, "uniqueItems": true } } }
+      ]
     },
-    "evidence": {
+    "deletion_mechanism_answer": {
+      "description": "in_app and web_link need the flow or URL cited in evidence",
+      "allOf": [
+        { "$ref": "#/$defs/answer" },
+        { "properties": { "value": { "enum": ["in_app", "web_link", "none", null] } } }
+      ]
+    },
+
+    "data_type_value": {
+      "description": "How one Data safety data type is handled. Purposes, ephemeral and required apply only when collected; sharing_purposes only when shared.",
       "type": "object",
       "additionalProperties": false,
+      "required": ["collected", "shared"],
       "properties": {
-        "file": {
-          "type": "string",
-          "minLength": 1
-        },
-        "dependency": {
-          "type": "string",
-          "minLength": 1
-        },
-        "ticket": {
-          "type": "string",
-          "minLength": 1
-        },
-        "owner": {
-          "type": "string",
-          "minLength": 1
-        },
-        "note": {
-          "type": "string"
-        }
+        "collected": { "type": "boolean" },
+        "shared": { "type": "boolean" },
+        "ephemeral": { "type": "boolean", "description": "Processed ephemerally (kept in memory only)" },
+        "required": { "type": "boolean", "description": "true = collection is required, false = users can choose" },
+        "collection_purposes": { "type": "array", "items": { "$ref": "#/$defs/purpose" }, "uniqueItems": true },
+        "sharing_purposes": { "type": "array", "items": { "$ref": "#/$defs/purpose" }, "uniqueItems": true }
       },
-      "oneOf": [
+      "allOf": [
         {
-          "required": [
-            "file"
-          ]
+          "if": { "properties": { "collected": { "const": true } } },
+          "then": { "required": ["collection_purposes", "ephemeral", "required"], "properties": { "collection_purposes": { "minItems": 1 } } },
+          "else": { "properties": { "collection_purposes": false, "ephemeral": false, "required": false } }
         },
         {
-          "required": [
-            "dependency"
-          ]
-        },
-        {
-          "required": [
-            "ticket"
-          ]
-        },
-        {
-          "required": [
-            "owner"
-          ]
+          "if": { "properties": { "shared": { "const": true } } },
+          "then": { "required": ["sharing_purposes"], "properties": { "sharing_purposes": { "minItems": 1 } } },
+          "else": { "properties": { "sharing_purposes": false } }
         }
       ]
+    },
+    "data_type_answer": {
+      "allOf": [
+        { "$ref": "#/$defs/answer" },
+        { "properties": { "value": { "anyOf": [{ "type": "null" }, { "$ref": "#/$defs/data_type_value" }] } } }
+      ]
+    },
+
+    "data_types": {
+      "description": "Google's Data safety data types. Each must be answered, including 'not collected, not shared'. Keys are descriptive: Google's CSV question IDs could only be partly confirmed.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "location", "personal_info", "financial_info", "health_and_fitness", "messages", "photos_and_videos", "audio",
+        "files_and_docs", "calendar", "contacts", "app_activity", "web_browsing", "app_info_and_performance", "device_or_other_ids"
+      ],
+      "properties": {
+        "location": {
+          "type": "object", "additionalProperties": false, "required": ["approximate_location", "precise_location"],
+          "properties": { "approximate_location": { "$ref": "#/$defs/data_type_answer" }, "precise_location": { "$ref": "#/$defs/data_type_answer" } }
+        },
+        "personal_info": {
+          "type": "object", "additionalProperties": false,
+          "required": ["name", "email_address", "user_ids", "address", "phone_number", "race_and_ethnicity", "political_or_religious_beliefs", "sexual_orientation", "other_info"],
+          "properties": {
+            "name": { "$ref": "#/$defs/data_type_answer" },
+            "email_address": { "$ref": "#/$defs/data_type_answer" },
+            "user_ids": { "$ref": "#/$defs/data_type_answer" },
+            "address": { "$ref": "#/$defs/data_type_answer" },
+            "phone_number": { "$ref": "#/$defs/data_type_answer" },
+            "race_and_ethnicity": { "$ref": "#/$defs/data_type_answer" },
+            "political_or_religious_beliefs": { "$ref": "#/$defs/data_type_answer" },
+            "sexual_orientation": { "$ref": "#/$defs/data_type_answer" },
+            "other_info": { "$ref": "#/$defs/data_type_answer" }
+          }
+        },
+        "financial_info": {
+          "type": "object", "additionalProperties": false,
+          "required": ["user_payment_info", "purchase_history", "credit_score", "other_financial_info"],
+          "properties": {
+            "user_payment_info": { "$ref": "#/$defs/data_type_answer" },
+            "purchase_history": { "$ref": "#/$defs/data_type_answer" },
+            "credit_score": { "$ref": "#/$defs/data_type_answer" },
+            "other_financial_info": { "$ref": "#/$defs/data_type_answer" }
+          }
+        },
+        "health_and_fitness": {
+          "type": "object", "additionalProperties": false, "required": ["health_info", "fitness_info"],
+          "properties": { "health_info": { "$ref": "#/$defs/data_type_answer" }, "fitness_info": { "$ref": "#/$defs/data_type_answer" } }
+        },
+        "messages": {
+          "type": "object", "additionalProperties": false, "required": ["emails", "sms_or_mms", "other_in_app_messages"],
+          "properties": {
+            "emails": { "$ref": "#/$defs/data_type_answer" },
+            "sms_or_mms": { "$ref": "#/$defs/data_type_answer" },
+            "other_in_app_messages": { "$ref": "#/$defs/data_type_answer" }
+          }
+        },
+        "photos_and_videos": {
+          "type": "object", "additionalProperties": false, "required": ["photos", "videos"],
+          "properties": { "photos": { "$ref": "#/$defs/data_type_answer" }, "videos": { "$ref": "#/$defs/data_type_answer" } }
+        },
+        "audio": {
+          "type": "object", "additionalProperties": false, "required": ["voice_or_sound_recordings", "music_files", "other_audio_files"],
+          "properties": {
+            "voice_or_sound_recordings": { "$ref": "#/$defs/data_type_answer" },
+            "music_files": { "$ref": "#/$defs/data_type_answer" },
+            "other_audio_files": { "$ref": "#/$defs/data_type_answer" }
+          }
+        },
+        "files_and_docs": {
+          "type": "object", "additionalProperties": false, "required": ["files_and_docs"],
+          "properties": { "files_and_docs": { "$ref": "#/$defs/data_type_answer" } }
+        },
+        "calendar": {
+          "type": "object", "additionalProperties": false, "required": ["calendar_events"],
+          "properties": { "calendar_events": { "$ref": "#/$defs/data_type_answer" } }
+        },
+        "contacts": {
+          "type": "object", "additionalProperties": false, "required": ["contacts"],
+          "properties": { "contacts": { "$ref": "#/$defs/data_type_answer" } }
+        },
+        "app_activity": {
+          "type": "object", "additionalProperties": false,
+          "required": ["app_interactions", "in_app_search_history", "installed_apps", "other_user_generated_content", "other_actions"],
+          "properties": {
+            "app_interactions": { "$ref": "#/$defs/data_type_answer" },
+            "in_app_search_history": { "$ref": "#/$defs/data_type_answer" },
+            "installed_apps": { "$ref": "#/$defs/data_type_answer" },
+            "other_user_generated_content": { "$ref": "#/$defs/data_type_answer" },
+            "other_actions": { "$ref": "#/$defs/data_type_answer" }
+          }
+        },
+        "web_browsing": {
+          "type": "object", "additionalProperties": false, "required": ["web_browsing_history"],
+          "properties": { "web_browsing_history": { "$ref": "#/$defs/data_type_answer" } }
+        },
+        "app_info_and_performance": {
+          "type": "object", "additionalProperties": false, "required": ["crash_logs", "diagnostics", "other_app_performance_data"],
+          "properties": {
+            "crash_logs": { "$ref": "#/$defs/data_type_answer" },
+            "diagnostics": { "$ref": "#/$defs/data_type_answer" },
+            "other_app_performance_data": { "$ref": "#/$defs/data_type_answer" }
+          }
+        },
+        "device_or_other_ids": {
+          "type": "object", "additionalProperties": false, "required": ["device_or_other_ids"],
+          "properties": { "device_or_other_ids": { "$ref": "#/$defs/data_type_answer" } }
+        }
+      }
     }
   }
 }

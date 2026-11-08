@@ -16,12 +16,6 @@ sections:
         - file: app/src/main/AndroidManifest.xml
           note: No login activity; no auth dependency
       status: confirmed
-    access_instructions:
-      value: null
-      evidence:
-        - note: Nothing restricted
-          file: app/build.gradle.kts
-      status: confirmed
   ads:
     contains_ads:
       value: false
