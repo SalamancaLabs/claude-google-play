@@ -2,8 +2,12 @@
 # Rules:
 # - `data` keys are "<group>.<key>" and match schema/app-content.schema.json data_safety.data_types exactly.
 # - Every field comes from the vendor's own disclosure at `source`. A field the source does not state is
-#   omitted (not guessed): omitted `shared` / `purposes` / `required` / `ephemeral` => needs_review.
-# - `depends_on_usage` lists data the SDK can collect depending on how the app configures it. Never confirm those from the catalog.
+#   omitted (not guessed): omitted `shared` / `*_purposes` / `required` / `ephemeral` => needs_review.
+# - `collection_purposes` / `sharing_purposes` map to the schema fields of the same name on a data type value.
+# - `depends_on_usage` lists data the SDK can collect depending on how the app configures or calls it.
+#   Never confirm those from the catalog; ask the owner.
+# - `uses_advertising_id: true` means the source says the SDK collects the Android advertising ID.
+# - `needs_review_only: true` means no data type could be sourced: the SDK is known, every answer stays needs_review.
 # - A package that is not listed here is unknown => needs_review.
 sdks:
   - id: firebase_analytics
@@ -14,10 +18,14 @@ sdks:
       npm: ["@react-native-firebase/analytics"]
     source: https://support.google.com/analytics/answer/11582702
     also_see: https://firebase.google.com/docs/android/play-data-disclosure
+    uses_advertising_id: true   # source: collects the Android advertising ID by default; can be disabled by configuring Analytics data collection
     data:
-      device_or_other_ids.device_or_other_ids: { note: app instance ID }
-      location.approximate_location: { note: coarse location derived from IP address }
-    depends_on_usage: [app_activity.app_interactions]
+      device_or_other_ids.device_or_other_ids: { note: app-instance ID and Android advertising ID }
+      location.approximate_location: { note: coarse location derived from masked IP address }
+      financial_info.purchase_history: { note: in-app purchase and subscription events (product ID, name, price) }
+      app_activity.app_interactions: { note: screen views, sessions and app lifecycle events }
+    depends_on_usage: [personal_info.user_ids, device_or_other_ids.device_or_other_ids]
+    note: User-ID is collected only if the app sets one; account identifiers only if Google signals is enabled
 
   - id: firebase_crashlytics
     name: Firebase Crashlytics
@@ -30,7 +38,8 @@ sdks:
       app_info_and_performance.crash_logs: { note: stack traces and app state at crash }
       app_info_and_performance.diagnostics: { note: device metadata at crash }
       device_or_other_ids.device_or_other_ids: { note: Crashlytics installation UUID }
-    requires_also: [Firebase installations SDK (pulled in transitively; see source)]
+    depends_on_usage: [personal_info.user_ids]
+    note: collects custom keys, logs and free-text user IDs the app attaches to crash reports (grep setCustomKey, log(, setUserIdentifier); depends on the Firebase installations SDK (transitive)
 
   - id: admob
     name: Google Mobile Ads SDK (AdMob)
@@ -46,7 +55,8 @@ sdks:
       app_activity.app_interactions: { shared: true, note: app launch, taps, video views }
       app_info_and_performance.diagnostics: { shared: true, note: launch time, hang rate, energy usage }
       device_or_other_ids.device_or_other_ids: { shared: true, note: ad ID, app set ID, account identifiers }
-    purposes: [advertising_or_marketing, analytics, fraud_prevention_security_compliance]
+    collection_purposes: [advertising_or_marketing, analytics, fraud_prevention_security_compliance]
+    sharing_purposes: [advertising_or_marketing, analytics, fraud_prevention_security_compliance]
 
   - id: revenuecat
     name: RevenueCat
@@ -57,8 +67,9 @@ sdks:
     source: https://www.revenuecat.com/docs/platform-resources/google-platform-resources/google-plays-data-safety
     data:
       financial_info.purchase_history: { required: true, ephemeral: false }
-    purposes: [app_functionality, analytics]
-    note: source says "shared" may also apply if third-party integrations that are not service providers are enabled
+    collection_purposes: [app_functionality, analytics]
+    depends_on_usage: [personal_info.name, personal_info.email_address, personal_info.phone_number, device_or_other_ids.device_or_other_ids]
+    note: personal info only if customer attributes carry identifiable contact data; device IDs only with integrations using gpsAdId / androidId; source says "shared" may also apply with integrations to third parties that are not service providers
 
   - id: sentry
     name: Sentry
@@ -67,18 +78,19 @@ sdks:
       maven: [io.sentry:sentry-android, io.sentry:sentry]
       npm: ["@sentry/react-native"]
     source: https://docs.sentry.io/platforms/dart/guides/flutter/data-management/data-collected/
-    data:
-      app_info_and_performance.crash_logs: { note: error events and stack traces }
-      app_info_and_performance.diagnostics: { note: device and runtime information }
-    depends_on_usage: [location.approximate_location, personal_info.user_ids, personal_info.email_address, device_or_other_ids.device_or_other_ids]
-    note: source says IP address and logged-in user data are not sent by default; check sendDefaultPii and setUser calls
+    sources:
+      maven: https://docs.sentry.io/platforms/android/data-management/data-collected/
+    needs_review_only: true   # the cited pages list data categories but do not map them to Play data types
+    depends_on_usage: [app_info_and_performance.crash_logs, app_info_and_performance.diagnostics, location.approximate_location, personal_info.user_ids, personal_info.email_address]
+    note: IP address and logged-in user data are not sent by default (sendDefaultPii); full request URLs and query strings of instrumented HTTP requests may contain PII; the Android page lists device and OS context
 
   - id: aptabase
     name: Aptabase
     packages:
       pub: [aptabase_flutter]
       npm: ["@aptabase/react-native"]
-    source: https://aptabase.com/legal/privacy
-    data:
-      app_activity.app_interactions: { note: analytics events sent by the app }
-    note: source says the SDK collects no device ID; it derives a daily rotating pseudonymous ID server-side from IP and user agent
+    source: https://aptabase.com/docs/
+    also_see: https://aptabase.com/legal/privacy
+    needs_review_only: true   # docs: nothing is tracked automatically; events are enriched with OS name/version, app version, locale
+    depends_on_usage: [app_activity.app_interactions, app_activity.other_actions]
+    note: collects only what the app tracks via trackEvent plus OS/app version/locale; privacy page says it collects no device ID and derives a daily rotating pseudonymous ID server-side from IP and user agent

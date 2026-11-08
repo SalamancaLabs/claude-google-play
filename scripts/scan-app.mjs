@@ -23,17 +23,43 @@ function* walk(dir) {
   }
 }
 
-const read = (f) => { try { return readFileSync(f, 'utf8'); } catch { return null; } };
-const lineOf = (text, index) => text.slice(0, index).split('\n').length;
+const MAX_BYTES = 1.5 * 1024 * 1024;
+
+// Returns null for unreadable, oversized, minified or binary files.
+const read = (f) => {
+  try {
+    if (/\.min\./.test(basename(f))) return null;
+    if (statSync(f).size > MAX_BYTES) return null;
+    const buf = readFileSync(f);
+    if (buf.subarray(0, 8192).includes(0)) return null;
+    return buf.toString('utf8');
+  } catch { return null; }
+};
+
+// Line numbers from a per-file table of newline offsets (binary search), computed once.
+function liner(text) {
+  const nl = [];
+  for (let i = text.indexOf('\n'); i !== -1; i = text.indexOf('\n', i + 1)) nl.push(i);
+  return (index) => {
+    let lo = 0, hi = nl.length;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (nl[mid] < index) lo = mid + 1; else hi = mid; }
+    return lo + 1;
+  };
+}
+
+const stripXmlComments = (t) => t.replace(/<!--[\s\S]*?-->/g, (m) => m.replace(/[^\n]/g, ' '));
 
 function attrs(s) {
   const out = {};
-  for (const m of s.matchAll(/([\w:.-]+)\s*=\s*"([^"]*)"/g)) out[m[1]] = m[2];
+  for (const m of s.matchAll(/([\w:.-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) out[m[1]] = m[2] ?? m[3];
   return out;
 }
 
 function scanManifest(root, file) {
-  const text = read(file);
+  const raw = read(file);
+  if (raw === null) return null;
+  const text = stripXmlComments(raw);
+  const lineOf = liner(text);
   const rel = posix(relative(root, file));
   const variant = basename(join(file, '..'));
   const permissions = [];
@@ -42,11 +68,11 @@ function scanManifest(root, file) {
     const a = attrs(m[1]);
     const name = a['android:name'];
     if (!name) continue;
-    const item = { name, line: lineOf(text, m.index) };
+    const item = { name, line: lineOf(m.index) };
     (a['tools:node'] === 'remove' ? removed : permissions).push(item);
   }
-  const pkg = text.match(/<manifest\b[^>]*\bpackage="([^"]+)"/)?.[1];
-  const label = text.match(/<application\b[^>]*\bandroid:label="([^"]+)"/)?.[1];
+  const pkg = attrs(text.match(/<manifest\b([^>]*)>/)?.[1] ?? '').package;
+  const label = attrs(text.match(/<application\b([^>]*)>/)?.[1] ?? '')['android:label'];
   return { file: rel, variant, permissions, removed, ...(pkg && { package: pkg }), ...(label && { label }) };
 }
 
@@ -57,7 +83,7 @@ function scanManifests(root) {
     if (!existsSync(dir)) continue;
     for (const v of readdirSync(dir).sort()) {
       const f = join(dir, v, 'AndroidManifest.xml');
-      if (existsSync(f)) found.push(scanManifest(root, f));
+      if (existsSync(f)) { const m = scanManifest(root, f); if (m) found.push(m); }
     }
   }
   return {
@@ -67,25 +93,33 @@ function scanManifests(root) {
 }
 
 function scanPubspec(root) {
-  const file = join(root, 'pubspec.yaml');
-  const text = read(file);
-  if (text === null) return { name: null, deps: [] };
+  const text = read(join(root, 'pubspec.yaml'));
+  if (text === null) return { name: null, deps: [], excluded: [] };
   let doc;
-  try { doc = parse(text); } catch { return { name: null, deps: [], error: 'pubspec.yaml is not valid YAML' }; }
-  const deps = Object.entries(doc?.dependencies ?? {}).map(([name, spec]) => {
+  try { doc = parse(text); } catch { return { name: null, deps: [], excluded: [], error: 'pubspec.yaml is not valid YAML' }; }
+  const lines = text.split('\n');
+  const entries = (obj, kind) => Object.entries(obj ?? {}).map(([name, spec]) => {
     const version = typeof spec === 'string' ? spec : (spec && typeof spec === 'object' ? (spec.version ?? null) : null);
     const source = spec && typeof spec === 'object' ? (spec.sdk ? `sdk:${spec.sdk}` : spec.git ? 'git' : spec.path ? 'path' : undefined) : undefined;
-    const line = text.split('\n').findIndex((l) => new RegExp(`^\\s{2}${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`).test(l)) + 1;
-    return { name, version, ...(source && { source }), file: 'pubspec.yaml', ...(line > 0 && { line }) };
+    const re = new RegExp(`^\\s{2}${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:`);
+    const line = lines.findIndex((l) => re.test(l)) + 1;
+    return { name, version, ...(source && { source }), ...(kind && { kind }), file: 'pubspec.yaml', ...(line > 0 && { line }) };
   });
-  return { name: doc?.name ?? null, deps };
+  return { name: doc?.name ?? null, deps: entries(doc?.dependencies), excluded: entries(doc?.dev_dependencies, 'dev_dependencies') };
 }
 
+const TEST_CONFIG = /^(test|androidTest|kaptTest|kaptAndroidTest|testFixtures)\w*$/;
+
 function parseVersionCatalog(text) {
+  const lineOf = liner(text);
   const versions = {};
   const libs = [];
+  const bundles = {};
   let section = '';
-  text.split('\n').forEach((raw, i) => {
+  let pos = 0;
+  text.split('\n').forEach((raw) => {
+    const lineStart = pos;
+    pos += raw.length + 1;
     const line = raw.replace(/#.*$/, '').trim();
     const sec = line.match(/^\[(\w+)\]$/);
     if (sec) { section = sec[1]; return; }
@@ -94,6 +128,8 @@ function parseVersionCatalog(text) {
     const [, alias, rhs] = kv;
     if (section === 'versions') {
       versions[alias] = rhs.replace(/^["']|["']$/g, '');
+    } else if (section === 'bundles') {
+      bundles[alias] = [...rhs.matchAll(/["']([^"']+)["']/g)].map((m) => m[1]);
     } else if (section === 'libraries') {
       let name = null, version = null;
       const str = rhs.match(/^["']([^"']+)["']$/);
@@ -109,32 +145,68 @@ function parseVersionCatalog(text) {
         const direct = rhs.match(/\bversion\s*=\s*["']([^"']+)["']/)?.[1];
         version = ref ? (versions[ref] ?? null) : (direct ?? null);
       }
-      if (name) libs.push({ name, version, alias, line: i + 1 });
+      if (name) libs.push({ name, version, alias, line: lineOf(lineStart) });
     }
   });
-  return libs;
+  return { libs, bundles };
 }
 
+const normAlias = (a) => a.replace(/[-_]/g, '.');
+
 function scanGradle(root) {
-  const out = [];
+  const deps = [];
+  const excluded = [];
   const files = [...walk(root)].filter((f) => {
     const n = basename(f);
     return n === 'build.gradle' || n === 'build.gradle.kts' || n === 'libs.versions.toml';
   });
+  const catalogs = [];
+  const refs = new Map(); // normalized alias or "bundles.x" -> Set(configuration)
+  const addRef = (k, cfg) => { if (!refs.has(k)) refs.set(k, new Set()); refs.get(k).add(cfg); };
+  const re = /\b(\w+)\s*\(?\s*(?:platform\(\s*)?["']([^"':]+:[^"':]+(?::[^"']+)?)["']/g;
+  const CONFIG = /^(implementation|api|compileOnly|runtimeOnly|debugImplementation|releaseImplementation|profileImplementation|kapt|ksp|classpath)$/;
   for (const f of files) {
     const text = read(f);
+    if (text === null) continue;
     const rel = posix(relative(root, f));
-    if (basename(f) === 'libs.versions.toml') {
-      for (const l of parseVersionCatalog(text)) out.push({ name: l.name, version: l.version, file: rel, line: l.line, via: `alias:${l.alias}` });
-      continue;
-    }
-    const re = /\b(implementation|api|compileOnly|runtimeOnly|debugImplementation|releaseImplementation|kapt|ksp|classpath)\s*\(?\s*(?:platform\(\s*)?["']([^"':]+:[^"':]+(?::[^"']+)?)["']/g;
+    if (basename(f) === 'libs.versions.toml') { catalogs.push({ rel, ...parseVersionCatalog(text) }); continue; }
+    const lineOf = liner(text);
+    const boms = [...text.matchAll(/platform\(\s*["']([^"']+)["']/g)].map((m) => m[1]);
     for (const m of text.matchAll(re)) {
+      const cfg = m[1];
+      const isTest = TEST_CONFIG.test(cfg);
+      if (!isTest && !CONFIG.test(cfg)) continue;
       const [g, n, v] = m[2].split(':');
-      out.push({ name: `${g}:${n}`, version: v ?? null, configuration: m[1], file: rel, line: lineOf(text, m.index) });
+      const item = { name: `${g}:${n}`, version: v ?? null, configuration: cfg, file: rel, line: lineOf(m.index) };
+      if (item.version === null && boms.length && !m[0].includes('platform(')) item.managed_by = boms[0];
+      (isTest ? excluded : deps).push(item);
+    }
+    for (const m of text.matchAll(/\b(\w+)\s*\(\s*(?:platform\(\s*)?libs\.([\w.]+)/g)) {
+      const ref = m[2];
+      addRef(ref.startsWith('bundles.') ? ref.split('.').slice(0, 2).join('.') : ref, m[1]);
     }
   }
-  return out;
+  const usedBy = (alias) => {
+    const na = normAlias(alias);
+    const cfgs = new Set();
+    for (const [ref, set] of refs) if (ref === na || ref.startsWith(na + '.')) set.forEach((c) => cfgs.add(c));
+    return cfgs;
+  };
+  for (const c of catalogs) {
+    const bundleCfgs = new Map();
+    for (const [bname, members] of Object.entries(c.bundles)) {
+      const set = refs.get(`bundles.${normAlias(bname)}`);
+      if (set) for (const mem of members) bundleCfgs.set(normAlias(mem), new Set([...(bundleCfgs.get(normAlias(mem)) ?? []), ...set]));
+    }
+    for (const l of c.libs) {
+      const cfgs = new Set([...usedBy(l.alias), ...(bundleCfgs.get(normAlias(l.alias)) ?? [])]);
+      const item = { name: l.name, version: l.version, file: c.rel, line: l.line, via: `alias:${l.alias}` };
+      if (cfgs.size === 0) deps.push({ ...item, declared_only: true });
+      else if ([...cfgs].every((x) => TEST_CONFIG.test(x))) excluded.push({ ...item, configuration: [...cfgs].join(',') });
+      else deps.push({ ...item, declared_only: false });
+    }
+  }
+  return { deps, excluded };
 }
 
 function scanApplicationIds(root) {
@@ -143,8 +215,10 @@ function scanApplicationIds(root) {
     const n = basename(f);
     if (n !== 'build.gradle' && n !== 'build.gradle.kts') continue;
     const text = read(f);
+    if (text === null) continue;
+    const lineOf = liner(text);
     for (const m of text.matchAll(/\b(applicationId|namespace)\s*(?:=\s*)?["']([^"']+)["']/g)) {
-      out.push({ kind: m[1], value: m[2], file: posix(relative(root, f)), line: lineOf(text, m.index) });
+      out.push({ kind: m[1], value: m[2], file: posix(relative(root, f)), line: lineOf(m.index) });
     }
   }
   return out;
@@ -152,11 +226,11 @@ function scanApplicationIds(root) {
 
 function scanNpm(root) {
   const text = read(join(root, 'package.json'));
-  if (text === null) return { name: null, deps: [] };
+  if (text === null) return { name: null, deps: [], excluded: [] };
   let doc;
-  try { doc = JSON.parse(text); } catch { return { name: null, deps: [], error: 'package.json is not valid JSON' }; }
-  const deps = Object.entries(doc.dependencies ?? {}).map(([name, version]) => ({ name, version, file: 'package.json' }));
-  return { name: doc.name ?? null, deps };
+  try { doc = JSON.parse(text); } catch { return { name: null, deps: [], excluded: [], error: 'package.json is not valid JSON' }; }
+  const entries = (o, kind) => Object.entries(o ?? {}).map(([name, version]) => ({ name, version, ...(kind && { kind }), file: 'package.json' }));
+  return { name: doc.name ?? null, deps: entries(doc.dependencies), excluded: entries(doc.devDependencies, 'devDependencies') };
 }
 
 function* sourceFiles(root, exts) {
@@ -187,8 +261,9 @@ const cleanUrl = (u) => u.replace(/[.:!?]+$/, '');
 function* urlsIn(file, root) {
   const text = read(file);
   if (text === null) return;
+  const lineOf = liner(text);
   for (const m of text.matchAll(URL_RE)) {
-    yield { url: cleanUrl(m[0]), file: posix(relative(root, file)), line: lineOf(text, m.index) };
+    yield { url: cleanUrl(m[0]), file: posix(relative(root, file)), line: lineOf(m.index) };
   }
 }
 
@@ -249,6 +324,7 @@ export function scanApp(repoDir) {
   const root = repoDir;
   const pubspec = scanPubspec(root);
   const npm = scanNpm(root);
+  const gradle = scanGradle(root);
   return {
     identity: {
       pubspec_name: pubspec.name,
@@ -256,7 +332,13 @@ export function scanApp(repoDir) {
       gradle_ids: scanApplicationIds(root),
     },
     manifests: scanManifests(root),
-    dependencies: { pubspec: pubspec.deps, gradle: scanGradle(root), npm: npm.deps },
+    dependencies: {
+      pubspec: pubspec.deps,
+      gradle: gradle.deps,
+      npm: npm.deps,
+      // dev/test-only dependencies: not shipped in the release app
+      excluded: [...pubspec.excluded, ...gradle.excluded, ...npm.excluded],
+    },
     network_hosts: scanNetworkHosts(root),
     privacy_policy_candidates: scanPrivacyCandidates(root),
     locales: scanLocales(root),
