@@ -35,3 +35,42 @@ test('promotional word warns', () => {
   assert.equal(r.ok, true);
   assert.ok(r.warnings.some((w) => /"best"/.test(w.message)));
 });
+
+test('default locale: optional file missing in other locale warns', () => {
+  const r = checkListing(fx('default-es'), { defaultLocale: 'es-ES' });
+  assert.equal(r.ok, true);
+  assert.ok(r.warnings.some((w) => /en-US[\\/]video\.txt/.test(w.file) && /es-ES/.test(w.message)));
+});
+
+test('no default locale: cross-locale check skipped', () => {
+  assert.deepEqual(checkListing(fx('default-es')).warnings, []);
+});
+
+test('default locale without directory fails', () => {
+  const r = checkListing(fx('valid'), { defaultLocale: 'fr-FR' });
+  assert.equal(r.ok, false);
+  assert.match(r.errors[0].message, /has no directory/);
+});
+
+test('missing required file fails', () => {
+  const r = checkListing(fx('missing-file'));
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.some((e) => /full_description/.test(e.file) && /missing/.test(e.message)));
+});
+
+test('trademark sign in title passes', () => {
+  assert.equal(checkListing(fx('trademark')).ok, true);
+});
+
+test('keycap emoji in title fails', () => {
+  assert.equal(checkListing(fx('keycap')).ok, false);
+});
+
+test('decomposed characters count as one (30 x e + U+0301 fits)', () => {
+  assert.equal(checkListing(fx('decomposed')).ok, true);
+});
+
+test('CRLF line ending is not counted', () => {
+  const r = checkListing(fx('crlf'));
+  assert.equal(r.ok, true);
+});

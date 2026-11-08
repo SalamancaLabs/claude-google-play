@@ -17,7 +17,6 @@ sl es-419 es-ES es-US sw sv-SE ta-IN te-IN th tr-TR uk ur vi`.split(/\s+/),
 export const LIMITS = { 'title.txt': 30, 'short_description.txt': 80, 'full_description.txt': 4000 };
 export const REQUIRED = Object.keys(LIMITS);
 const OPTIONAL = ['video.txt'];
-export const DEFAULT_LOCALE = 'en-US';
 
 // Play "Metadata" policy: https://support.google.com/googleplay/android-developer/answer/9898842
 // - Title: 30 characters max. No emoji, emoticons or repeated special characters in title.
@@ -33,13 +32,13 @@ const PROMO = [
   'limited time', 'best of play',
 ];
 const PROMO_RE = new RegExp(`(?<![\\p{L}\\p{N}])(?:${PROMO.join('|')})(?![\\p{L}\\p{N}])`, 'iu');
-const EMOJI_RE = /\p{Extended_Pictographic}|\p{Regional_Indicator}/u;
+const EMOJI_RE = /(?![©®™])\p{Extended_Pictographic}|\p{Regional_Indicator}|\u20E3/u;
 const CAPS_WORD_RE = /(?<![\p{L}\p{N}])\p{Lu}{3,}(?![\p{L}\p{N}])/u;
 
-const read = (p) => readFileSync(p, 'utf8').replace(/\r?\n$/, '');
+const read = (p) => readFileSync(p, 'utf8').replace(/^\uFEFF/, '').normalize('NFC').replace(/\r?\n$/, '');
 const len = (s) => [...s].length;
 
-export function checkListing(dir = 'fastlane/metadata/android') {
+export function checkListing(dir = 'fastlane/metadata/android', { defaultLocale } = {}) {
   const errors = [];
   const warnings = [];
   if (!existsSync(dir) || !statSync(dir).isDirectory()) {
@@ -49,7 +48,11 @@ export function checkListing(dir = 'fastlane/metadata/android') {
   if (!locales.length) errors.push({ file: dir, message: 'no locale directories found' });
 
   const files = (l) => new Set(readdirSync(join(dir, l)));
-  const defaultFiles = locales.includes(DEFAULT_LOCALE) ? files(DEFAULT_LOCALE) : null;
+  let defaultFiles = null;
+  if (defaultLocale) {
+    if (locales.includes(defaultLocale)) defaultFiles = files(defaultLocale);
+    else errors.push({ file: join(dir, defaultLocale), message: `default locale "${defaultLocale}" has no directory` });
+  }
 
   for (const locale of locales) {
     const ldir = join(dir, locale);
@@ -80,11 +83,11 @@ export function checkListing(dir = 'fastlane/metadata/android') {
         if (m) warnings.push({ file: f, message: `promotional/performance term "${m[0]}" (Play Metadata policy)` });
       }
     }
-    if (defaultFiles && locale !== DEFAULT_LOCALE) {
+    if (defaultFiles && locale !== defaultLocale) {
       // Missing required files are already errors; warn for optional ones.
       for (const name of OPTIONAL) {
         if (defaultFiles.has(name) && !present.has(name)) {
-          warnings.push({ file: join(ldir, name), message: `missing; ${DEFAULT_LOCALE} has it` });
+          warnings.push({ file: join(ldir, name), message: `missing; ${defaultLocale} has it` });
         }
       }
     }
@@ -93,8 +96,11 @@ export function checkListing(dir = 'fastlane/metadata/android') {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const dir = process.argv[2] ?? 'fastlane/metadata/android';
-  const r = checkListing(dir);
+  const args = process.argv.slice(2);
+  const i = args.indexOf('--default');
+  const defaultLocale = i >= 0 ? args.splice(i, 2)[1] : undefined;
+  const dir = args[0] ?? 'fastlane/metadata/android';
+  const r = checkListing(dir, { defaultLocale });
   for (const e of r.errors) console.error(`error: ${e.file}: ${e.message}`);
   for (const w of r.warnings) console.warn(`warning: ${w.file}: ${w.message}`);
   console.log(r.ok ? 'listing ok' : `listing has ${r.errors.length} error(s)`);
