@@ -29,7 +29,9 @@ key is valid.
 The browser steps use the plugin's `google-play-browser` MCP server (Playwright
 MCP), with a dedicated browser profile at `~/.local/share/google-play/profile`,
 separate from your everyday browser. The plugin starts it for you, and it needs
-Node.js with `npx`.
+Node.js with `npx`. It drives Google Chrome by default. If Chrome is missing,
+install it with `npx playwright install chrome`, or with your distro's Chrome
+package.
 
 1. Run `/google-play:app-content` once. The first browser step opens a browser
    window and loads the Play Console.

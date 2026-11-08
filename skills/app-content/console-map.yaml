@@ -1,0 +1,183 @@
+# Navigation and control map for the Play Console App content sections.
+# Keys match schema/app-content.schema.json exactly (data_safety is out of scope: it goes through the API).
+# Every label is `verified: false` until a read-only verify run confirms it in the live Console.
+# Locate controls by visible English label + ARIA role; never by CSS class or coordinates.
+# `map` says how the YAML value becomes a control state.
+version: 1
+nav_path: "Policy and programs > App content"   # older Console builds show "Policy > App content"
+
+sections:
+  privacy_policy:
+    source:
+      - https://support.google.com/googleplay/android-developer/answer/9859455
+      - https://webtoapp.design/blog/configure-app-content-in-play-console
+    card: Privacy policy
+    open_button: ["Start declaration", "Manage"]
+    save_button: Save
+    questions:
+      url:
+        label: Privacy policy URL   # field label unconfirmed; the help text says "enter the URL hosting your privacy policy"
+        control: url_field
+        map: "value (string) is typed into the field as is"
+        verified: false
+
+  app_access:
+    source:
+      - https://support.google.com/googleplay/android-developer/answer/9859455
+      - https://support.google.com/googleplay/android-developer/answer/9214102
+      - https://webtoapp.design/blog/configure-app-content-in-play-console
+    card: App access
+    open_button: ["Start", "Manage"]
+    save_button: Save
+    questions:
+      all_functionality_available:
+        label: "All functionality is available without special access"
+        alt_label: "All or some functionality is restricted"
+        control: radio
+        map: "true -> radio 'All functionality is available without special access'; false -> radio 'All or some functionality is restricted'"
+        verified: false
+      access_instructions:
+        label: "Add new instructions"   # button opening a dialog: instruction name, username/phone, password, any other instructions
+        control: text_field
+        map: "Only when all_functionality_available is false. Click 'Add new instructions' and put the text in the dialog fields (name, username, password, 'Any other instructions'). Never invent credentials: the YAML text must already contain them."
+        verified: false
+
+  ads:
+    source:
+      - https://support.google.com/googleplay/android-developer/answer/9859455
+      - https://webtoapp.design/blog/configure-app-content-in-play-console
+    card: Ads
+    open_button: ["Start declaration", "Manage"]
+    save_button: Save
+    questions:
+      contains_ads:
+        label: "Does your app contain ads?"   # option labels reported as 'Yes, my app contains ads' / 'No, my app does not contain ads'
+        control: radio
+        map: "true -> 'Yes, my app contains ads'; false -> 'No, my app does not contain ads'"
+        verified: false
+
+  advertising_id:
+    source:
+      - https://support.google.com/googleplay/android-developer/answer/6048248
+      - https://webtoapp.design/blog/configure-app-content-in-play-console
+    card: Advertising ID
+    open_button: ["Start", "Manage"]
+    save_button: Save
+    questions:
+      uses_advertising_id:
+        label: "Does your app use advertising ID?"   # exact question text unconfirmed
+        control: radio
+        map: "true -> Yes; false -> No"
+        verified: false
+      purposes:
+        label: "Purposes for using advertising ID"   # shown only after Yes; unconfirmed
+        control: multi_select_checkbox
+        map:
+          app_functionality: "App functionality"
+          analytics: "Analytics"
+          developer_communications: "Developer communications"
+          advertising_or_marketing: "Advertising or marketing"
+          fraud_prevention_security_compliance: "Fraud prevention, security, and compliance"
+          personalization: "Personalization"
+          account_management: "Account management"
+        map_note: "Tick exactly the listed purposes, untick the rest. Empty list: control is not shown (uses_advertising_id is No)."
+        verified: false
+
+  content_rating:
+    source:
+      - https://support.google.com/googleplay/android-developer/answer/9859655
+      - https://webtoapp.design/blog/configure-app-content-in-play-console
+    card: Content rating
+    open_button: ["Start", "Start new questionnaire"]
+    save_button: Submit   # flow: Start -> email + category -> Next -> questionnaire (Save draft) -> Summary -> Submit
+    notes: "Multi-step IARC questionnaire. Contact email is not in the YAML: ask the owner, never guess. Retaking creates a new questionnaire; treat that as a non-plain-save dialog and confirm with the owner."
+    questions:
+      category:
+        label: "Category"   # radio list of IARC categories; wording unconfirmed, match the YAML text against visible option labels
+        control: radio
+        map: "value (free text) must equal or clearly match one visible category option; if none matches, stop"
+        verified: false
+      questionnaire:
+        label: "(each IARC question as worded in the Console)"
+        control: radio
+        dynamic: true   # schema allows arbitrary snake_case keys; questions vary by category
+        map: "Match each YAML key to a Console question by meaning. true -> Yes, false -> No; string -> the option whose label equals it. A Console question with no YAML key, or an ambiguous match: stop."
+        verified: false
+
+  target_audience:
+    source:
+      - https://support.google.com/googleplay/android-developer/answer/9867159
+    card: Target audience and content
+    open_button: ["Start", "Manage"]
+    save_button: Save   # flow: Target age -> App details -> Ads -> Store presence -> summary -> Save
+    questions:
+      age_groups:
+        label: "Target age"
+        control: multi_select_checkbox
+        map:
+          5_and_under: "Age 5 and under"
+          6_8: "Ages 6-8"
+          9_12: "Ages 9-12"
+          13_15: "Ages 13-15"
+          16_17: "Ages 16-17"
+          18_and_over: "Ages 18 and over"
+        map_note: "Tick exactly the listed groups. The later Ads and Store presence steps only appear for some selections; if they appear, stop unless the map covers them."
+        verified: false
+      appeals_to_children:
+        label: "Does your app appeal to children?"   # exact wording unconfirmed, in the 'App details' step
+        control: radio
+        map: "true -> Yes; false -> No"
+        verified: false
+
+  news_app:
+    source:
+      - https://support.google.com/googleplay/android-developer/answer/10523915
+    card: News and magazine apps
+    open_button: ["Start declaration", "Manage"]
+    save_button: Save   # flow: questions -> Next -> Save (also Save as draft, Back, Discard changes)
+    questions:
+      is_news_app:
+        label: "Is your app a news or magazine app?"   # exact wording unconfirmed
+        control: radio
+        map: "false -> the option saying the app is not a news or magazine app, then Save. true -> stop: the full news declaration has more questions this map does not cover."
+        verified: false
+
+  government_app:
+    source:
+      - https://support.google.com/googleplay/android-developer/answer/9859455
+      - https://webtoapp.design/blog/configure-app-content-in-play-console
+    card: Government apps
+    open_button: ["Start", "Manage"]
+    save_button: Save
+    questions:
+      is_government_app:
+        label: "Is your app developed by or for a government?"   # wording unconfirmed
+        control: radio
+        map: "true -> Yes; false -> No"
+        verified: false
+
+  financial_features:
+    source:
+      - https://support.google.com/googleplay/android-developer/answer/13849271
+    card: Financial features
+    open_button: ["Start", "Manage"]
+    save_button: Save   # flow: select features -> Next -> Save (also Save as draft, Back, Discard)
+    questions:
+      features:
+        label: "Financial features"
+        control: multi_select_checkbox
+        map: "[] -> checkbox \"My app doesn't provide any financial features\". Non-empty -> tick the checkbox whose label matches each string (for example 'Banking', 'Cryptocurrency wallet', 'Insurance', 'Other'); a string with no matching label: stop."
+        verified: false
+
+  health_apps:
+    source:
+      - https://support.google.com/googleplay/android-developer/answer/14738291
+    card: Health apps
+    open_button: ["Start", "Manage"]
+    save_button: Save   # flow: select features -> Next -> Save (also Save as draft, Back, Discard changes)
+    questions:
+      features:
+        label: "Health features"
+        control: multi_select_checkbox
+        map: "[] -> checkbox \"My app doesn't provide any health features\" (exact text unconfirmed; one source says 'does not have any'). Non-empty -> tick the checkbox whose label matches each string (for example 'Sleep Management', 'Activity and Fitness'); a string with no matching label: stop."
+        verified: false

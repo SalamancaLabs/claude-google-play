@@ -20,6 +20,40 @@ Every browser step runs this first, using the `google-play-browser` MCP server (
 
 1. **Draft** - Not implemented yet.
 2. **Review** - Not implemented yet.
-3. **Apply** (Data safety via the `applications.dataSafety` API; other sections via the Playwright MCP, with owner approval before saving) - Not implemented yet.
+3. **Apply** - see [Apply](#apply) below.
 
 A separate read-only **Verify** run compares the live Console answers with the YAML - Not implemented yet.
+
+## Apply
+
+Fills every App content section except Data safety in the Console from `play/app-content.yaml`, through the `google-play-browser` MCP server. Navigation, labels and value mappings live in `${CLAUDE_PLUGIN_ROOT}/skills/app-content/console-map.yaml`. Data safety is out of scope here: it goes through the Data safety API script, not the browser.
+
+### Gate
+
+1. Run `node "${CLAUDE_PLUGIN_ROOT}/scripts/validate.mjs" play/app-content.yaml`. If it fails, STOP and show the errors.
+2. If any answer outside `data_safety` has `status: needs_review`, STOP and list those keys. The owner resolves them in the Review phase first.
+3. Run the Browser preflight above. Stop at the first failed check.
+
+### Per section
+
+Go through the sections of `console-map.yaml` in order. For each one:
+
+1. Navigate: Policy and programs → App content → the section's `card`, then its `open_button` ("Start" or "Manage", whichever is shown).
+2. Read the current Console values for every question of the section, without changing anything.
+3. Show the owner a table: question | Console now | YAML | change?
+4. If nothing changes, report the section as unchanged and move on. Do not click Save.
+5. Otherwise fill only the controls that change, using the `map` rules. Find each control by its visible English label and ARIA role in the browser snapshot. Never use CSS classes, element ids, or coordinates. Never type credentials or fill sign-in forms; `access_instructions` text comes from the YAML as written.
+6. Ask the owner for explicit approval of the filled form. Only after a clear yes, click the section's `save_button` (Save, Submit, or the last Next-then-Save step of a wizard). Wait for the confirmation, then re-read the values to check they stuck.
+
+### Stop on the section (do not guess) when
+
+- a label from `console-map.yaml` is not found,
+- the form shows a question the YAML or the map does not cover,
+- a control has a different type than the map says,
+- a confirmation dialog appears that is not a plain save (for example discard, retake, or a policy warning).
+
+Leave the section unsaved, report exactly what you saw (label text, role, dialog text), and go on to the next section. When a label differs from the map, tell the owner that `console-map.yaml` needs updating. Do not adapt silently.
+
+### Report
+
+End with one line per section: `filled`, `unchanged`, or `blocked (reason)`. Add a final line for Data safety: not handled here, use the Data safety script.
