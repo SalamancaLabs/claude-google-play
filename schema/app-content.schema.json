@@ -83,17 +83,32 @@
         },
         "data_safety": {
           "type": "object", "additionalProperties": false, "required": ["collects_or_shares_user_data"],
-          "description": "data_types and security are required when collects_or_shares_user_data is true and forbidden when it is false.",
+          "description": "data_types and security are required when collects_or_shares_user_data is true and forbidden when it is false. The other answers are optional and left blank in the Play form when absent.",
           "properties": {
             "collects_or_shares_user_data": { "$ref": "#/$defs/bool_answer" },
             "data_types": { "$ref": "#/$defs/data_types" },
             "security": {
-              "type": "object", "additionalProperties": false, "required": ["encrypted_in_transit", "deletion_request_mechanism"],
+              "type": "object", "additionalProperties": false, "required": ["encrypted_in_transit", "data_deletion"],
               "properties": {
                 "encrypted_in_transit": { "$ref": "#/$defs/bool_answer" },
-                "deletion_request_mechanism": { "$ref": "#/$defs/deletion_mechanism_answer" }
-              }
-            }
+                "data_deletion": { "$ref": "#/$defs/data_deletion_answer", "description": "Can users request that their data is deleted? yes needs the flow or URL cited in evidence." },
+                "data_deletion_url": { "$ref": "#/$defs/url_answer", "description": "Optional page for data deletion requests. Only with data_deletion = yes." }
+              },
+              "allOf": [
+                {
+                  "if": { "required": ["data_deletion"], "properties": { "data_deletion": { "required": ["value"], "properties": { "value": { "const": "yes" } } } } },
+                  "else": { "properties": { "data_deletion_url": false } }
+                }
+              ]
+            },
+            "account_creation_methods": { "$ref": "#/$defs/account_creation_methods_answer", "description": "How users can create an account. [none] when the app has no accounts." },
+            "account_creation_description": { "$ref": "#/$defs/string_answer", "description": "Required when account_creation_methods includes other, forbidden otherwise." },
+            "account_deletion_url": { "$ref": "#/$defs/url_answer", "description": "Where users can request account deletion. Required when the app has accounts, forbidden when account_creation_methods is [none]." },
+            "complies_with_families_policy": { "$ref": "#/$defs/bool_answer", "description": "Only for apps whose target audience includes children." },
+            "independently_validated": { "$ref": "#/$defs/bool_answer", "description": "Has the app passed an independent security review?" },
+            "has_outside_app_accounts": { "$ref": "#/$defs/bool_answer", "description": "Can users log in with accounts created outside the app?" },
+            "outside_app_account_types": { "$ref": "#/$defs/outside_app_account_types_answer", "description": "Required when has_outside_app_accounts is true, forbidden otherwise." },
+            "outside_app_account_description": { "$ref": "#/$defs/string_answer", "description": "Required when outside_app_account_types includes other, forbidden otherwise." }
           },
           "allOf": [
             {
@@ -103,6 +118,26 @@
             {
               "if": { "required": ["collects_or_shares_user_data"], "properties": { "collects_or_shares_user_data": { "properties": { "value": { "const": false } }, "required": ["value"] } } },
               "then": { "properties": { "data_types": false, "security": false } }
+            },
+            {
+              "if": { "required": ["account_creation_methods"], "properties": { "account_creation_methods": { "required": ["value"], "properties": { "value": { "type": "array", "contains": { "const": "other" } } } } } },
+              "then": { "required": ["account_creation_description"] },
+              "else": { "properties": { "account_creation_description": false } }
+            },
+            {
+              "if": { "required": ["account_creation_methods"], "properties": { "account_creation_methods": { "required": ["value"], "properties": { "value": { "type": "array", "contains": { "not": { "const": "none" } } } } } } },
+              "then": { "required": ["account_deletion_url"] },
+              "else": { "properties": { "account_deletion_url": false } }
+            },
+            {
+              "if": { "required": ["has_outside_app_accounts"], "properties": { "has_outside_app_accounts": { "required": ["value"], "properties": { "value": { "const": true } } } } },
+              "then": { "required": ["outside_app_account_types"] },
+              "else": { "properties": { "outside_app_account_types": false } }
+            },
+            {
+              "if": { "required": ["outside_app_account_types"], "properties": { "outside_app_account_types": { "required": ["value"], "properties": { "value": { "type": "array", "contains": { "const": "other" } } } } } },
+              "then": { "required": ["outside_app_account_description"] },
+              "else": { "properties": { "outside_app_account_description": false } }
             }
           ]
         },
@@ -191,11 +226,37 @@
         { "properties": { "value": { "type": ["array", "null"], "items": { "$ref": "#/$defs/age_group" }, "uniqueItems": true } } }
       ]
     },
-    "deletion_mechanism_answer": {
-      "description": "in_app and web_link need the flow or URL cited in evidence",
+    "data_deletion_answer": {
+      "description": "yes = users can request deletion, no = they cannot, no_auto_deleted = data is deleted automatically within 90 days",
       "allOf": [
         { "$ref": "#/$defs/answer" },
-        { "properties": { "value": { "enum": ["in_app", "web_link", "none", null] } } }
+        { "properties": { "value": { "enum": ["yes", "no", "no_auto_deleted", null] } } }
+      ]
+    },
+    "account_creation_methods_answer": {
+      "allOf": [
+        { "$ref": "#/$defs/answer" },
+        {
+          "properties": {
+            "value": {
+              "type": ["array", "null"], "uniqueItems": true,
+              "items": { "enum": ["user_id_password", "user_id_other_auth", "user_id_password_other_auth", "oauth", "other", "none"] }
+            }
+          }
+        }
+      ]
+    },
+    "outside_app_account_types_answer": {
+      "allOf": [
+        { "$ref": "#/$defs/answer" },
+        {
+          "properties": {
+            "value": {
+              "type": ["array", "null"], "uniqueItems": true,
+              "items": { "enum": ["login_with_outside_app_id", "login_through_employment_or_enterprise_account", "other"] }
+            }
+          }
+        }
       ]
     },
 
@@ -233,7 +294,7 @@
     },
 
     "data_types": {
-      "description": "Google's Data safety data types. Each must be answered, including 'not collected, not shared'. Keys are descriptive: Google's CSV question IDs could only be partly confirmed.",
+      "description": "Google's Data safety data types. Each must be answered, including 'not collected, not shared'. Keys are descriptive; schema/data-safety-csv-map.json links each to Google's CSV IDs.",
       "type": "object",
       "additionalProperties": false,
       "required": [

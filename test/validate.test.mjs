@@ -141,3 +141,42 @@ test('advertising_id: purposes required when used, empty when not', () => {
   a.uses_advertising_id = { value: null, evidence: [], status: 'needs_review', question: 'Does the SDK read the ID?' };
   assert.deepEqual(validateAppContent(doc).errors, []);
 });
+
+const ds = (doc) => doc.sections.data_safety;
+const ans = (value) => ({ value, evidence: [{ owner: 'founder' }], status: 'confirmed' });
+
+test('data_deletion: url only with yes; value must be a known option', () => {
+  const doc = load();
+  ds(doc).security.data_deletion = ans('no');
+  ds(doc).security.data_deletion_url = ans('https://example.com/delete');
+  fails(doc, 'sections.data_safety.security');
+  ds(doc).security.data_deletion = ans('maybe');
+  fails(doc, 'sections.data_safety.security.data_deletion.value');
+  ds(doc).security.data_deletion = ans('yes');
+  assert.ok(validateAppContent(doc).ok);
+});
+
+test('account creation: description for other, deletion url for real accounts', () => {
+  const doc = load();
+  ds(doc).account_creation_methods = ans(['oauth']);
+  fails(doc, 'sections.data_safety');
+  ds(doc).account_deletion_url = ans('https://example.com/account');
+  assert.ok(validateAppContent(doc).ok);
+  ds(doc).account_creation_methods = ans(['oauth', 'other']);
+  fails(doc, 'sections.data_safety');
+  ds(doc).account_creation_description = ans('Magic link');
+  assert.ok(validateAppContent(doc).ok);
+  ds(doc).account_creation_methods = ans(['none']);
+  delete ds(doc).account_creation_description;
+  fails(doc, 'sections.data_safety');
+});
+
+test('outside-app accounts: types required when true, forbidden otherwise', () => {
+  const doc = load();
+  ds(doc).has_outside_app_accounts = ans(true);
+  fails(doc, 'sections.data_safety');
+  ds(doc).outside_app_account_types = ans(['login_with_outside_app_id']);
+  assert.ok(validateAppContent(doc).ok);
+  ds(doc).has_outside_app_accounts = ans(false);
+  fails(doc, 'sections.data_safety');
+});
