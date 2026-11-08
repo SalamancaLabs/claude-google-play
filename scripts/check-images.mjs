@@ -10,8 +10,12 @@ import { fileURLToPath } from 'node:url';
 //   shorter side; up to 8 per device type; at least 2 screenshots to publish.
 // - Feature graphic: 1024x500, JPEG or 24-bit PNG (no alpha).
 // - Icon: 512x512, 32-bit PNG (with alpha), at most 1024 KB.
-// - Wear OS screenshots: 1:1, at least 384x384. The page states no file size limit for screenshots;
-//   8 MB (the long-standing console limit) is only a warning here.
+// - Large screens (7-inch and 10-inch tablets): each side 1080-7680 px, 16:9 or 9:16 (warned),
+//   at least 4 screenshots to be featured on large screens (warned).
+// - Wear OS screenshots: 1:1, at least 384x384.
+// - File size: the page states 8 MB only for Android XR screenshots; for other screenshots no limit
+//   is stated there, so 8 MB is an unverified, warning-only threshold.
+// - EXIF orientation is ignored; Play uses the stored dimensions.
 export const SCREENSHOT_DIRS = [
   'phoneScreenshots', 'sevenInchScreenshots', 'tenInchScreenshots', 'tvScreenshots', 'wearScreenshots',
 ];
@@ -19,6 +23,9 @@ export const MAX_SCREENSHOTS = 8;
 const MIN_SIDE = 320;
 const MAX_SIDE = 3840;
 const WEAR_MIN = 384;
+const TABLET_MIN = 1080;
+const TABLET_MAX = 7680;
+const TABLETS = new Set(['sevenInchScreenshots', 'tenInchScreenshots']);
 const ICON_MAX_BYTES = 1024 * 1024;
 const SHOT_WARN_BYTES = 8 * 1024 * 1024;
 const IMG_EXT = /\.(png|jpe?g)$/i;
@@ -47,7 +54,7 @@ export function readImage(buf) {
       if (m === 0xd8 || m === 0x01 || (m >= 0xd0 && m <= 0xd7)) { o += 2; continue; }
       if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) {
         if (o + 9 > buf.length) return null;
-        return { format: 'jpeg', width: buf.readUInt16BE(o + 7), height: buf.readUInt16BE(o + 5), alpha: false };
+        return { format: 'jpeg', width: buf.readUInt16BE(o + 7), height: buf.readUInt16BE(o + 5), alpha: false, components: buf[o + 9] };
       }
       o += 2 + buf.readUInt16BE(o + 2);
     }
@@ -94,6 +101,9 @@ export function checkImages(dir = 'fastlane/metadata/android', { defaultLocale }
       if (!existsSync(tdir)) continue;
       const files = readdirSync(tdir).filter((f) => IMG_EXT.test(f)).sort();
       if (files.length > MAX_SCREENSHOTS) err(tdir, `${files.length} screenshots, maximum is ${MAX_SCREENSHOTS}`);
+      if (TABLETS.has(type) && files.length > 0 && files.length < 4) {
+        warn(tdir, `${files.length} tablet screenshot(s); at least 4 are needed to be featured on large screens`);
+      }
       if (type === 'phoneScreenshots' && files.length < 2) {
         err(tdir, `${files.length} phone screenshot(s), at least 2 are needed to publish`);
       }
@@ -102,6 +112,7 @@ export function checkImages(dir = 'fastlane/metadata/android', { defaultLocale }
         const info = load(f);
         if (!info) continue;
         const { width: w, height: h } = info;
+        if (info.components === 4) warn(f, 'CMYK JPEG; convert to RGB');
         if (info.alpha) err(f, 'has an alpha channel; screenshots must be JPEG or 24-bit PNG');
         if (info.format === 'png' && !info.alpha && (info.bitDepth !== 8 || info.colorType === 0 || info.colorType === 3)) {
           warn(f, 'PNG is not 24-bit RGB; convert to 24-bit RGB if Play rejects it');
@@ -109,6 +120,12 @@ export function checkImages(dir = 'fastlane/metadata/android', { defaultLocale }
         if (type === 'wearScreenshots') {
           if (w !== h) err(f, `${w}x${h}; Wear OS screenshots must be 1:1`);
           if (Math.min(w, h) < WEAR_MIN) err(f, `${w}x${h}; Wear OS screenshots must be at least ${WEAR_MIN}x${WEAR_MIN}`);
+        } else if (TABLETS.has(type)) {
+          if (Math.min(w, h) < TABLET_MIN) err(f, `${w}x${h}; tablet screenshots must be at least ${TABLET_MIN} px per side`);
+          if (Math.max(w, h) > TABLET_MAX) err(f, `${w}x${h}; tablet screenshots must be at most ${TABLET_MAX} px per side`);
+          if (Math.abs(Math.max(w, h) * 9 - Math.min(w, h) * 16) > Math.max(w, h)) {
+            warn(f, `${w}x${h}; tablet screenshots should be 16:9 or 9:16`);
+          }
         } else {
           if (Math.min(w, h) < MIN_SIDE) err(f, `${w}x${h}; each side must be at least ${MIN_SIDE} px`);
           if (Math.max(w, h) > MAX_SIDE) err(f, `${w}x${h}; each side must be at most ${MAX_SIDE} px`);
@@ -117,15 +134,17 @@ export function checkImages(dir = 'fastlane/metadata/android', { defaultLocale }
         if (statSync(f).size > SHOT_WARN_BYTES) warn(f, 'larger than 8 MB; the console may reject it');
       }
     }
-    if (!sizes(locale).has('phoneScreenshots') && !existsSync(join(img, 'phoneScreenshots'))) {
+    if (!existsSync(join(img, 'phoneScreenshots'))) {
       warn(img, 'no phone screenshots');
     }
     const fg = existsSync(img) ? readdirSync(img).filter((f) => /^featureGraphic\.(png|jpe?g)$/i.test(f)) : [];
+    if (fg.length > 1) warn(img, 'both featureGraphic.png and featureGraphic.jpg exist; keep one');
     for (const name of fg) {
       const f = join(img, name);
       const info = load(f);
       if (!info) continue;
       if (info.width !== 1024 || info.height !== 500) err(f, `${info.width}x${info.height}; feature graphic must be 1024x500`);
+      if (info.components === 4) warn(f, 'CMYK JPEG; convert to RGB');
       if (info.alpha) err(f, 'has an alpha channel; feature graphic must be JPEG or 24-bit PNG');
     }
     const icon = join(img, 'icon.png');

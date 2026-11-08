@@ -115,7 +115,7 @@ test('feature graphic wrong size fails', () => {
 
 test('.png extension with JPEG bytes is detected as JPEG', () => {
   const buf = jpeg(360, 640);
-  assert.deepEqual(readImage(buf), { format: 'jpeg', width: 360, height: 640, alpha: false });
+  assert.deepEqual(readImage(buf), { format: 'jpeg', width: 360, height: 640, alpha: false, components: 3 });
   const files = phones(1, 360, 640);
   files['phoneScreenshots/2_s.png'] = buf;
   const r = checkImages(build(files));
@@ -130,7 +130,7 @@ test('non-image bytes fail', () => {
 });
 
 test('default locale: missing device type warns', () => {
-  const dir = build({ ...phones(2, 360, 640), 'tenInchScreenshots/1_s.png': png(1080, 1920) }, 'en-US');
+  const dir = build({ ...phones(2, 360, 640), ...Object.fromEntries([1, 2, 3, 4].map((i) => [`tenInchScreenshots/${i}_s.png`, png(1080, 1920)])) }, 'en-US');
   const f = join(dir, 'es-ES', 'images', 'phoneScreenshots');
   mkdirSync(f, { recursive: true });
   writeFileSync(join(f, '1_s.png'), png(360, 640));
@@ -138,4 +138,35 @@ test('default locale: missing device type warns', () => {
   const r = checkImages(dir, { defaultLocale: 'en-US' });
   assert.ok(r.warnings.some((w) => /es-ES/.test(w.file) && /tenInch/.test(w.file)));
   assert.deepEqual(checkImages(dir).warnings, []);
+});
+
+const tablets = (count, w, h) =>
+  Object.fromEntries(Array.from({ length: count }, (_, i) => [`tenInchScreenshots/${i + 1}_s.png`, png(w, h)]));
+
+test('tablet 800x1280 fails', () => {
+  const r = checkImages(build({ ...phones(2, 360, 640), ...tablets(4, 800, 1280) }));
+  assert.ok(r.errors.some((e) => /at least 1080/.test(e.message)));
+});
+
+test('tablet 3840x2160 passes', () => {
+  const r = checkImages(build({ ...phones(2, 360, 640), ...tablets(4, 3840, 2160) }));
+  assert.deepEqual(r.errors, []);
+  assert.deepEqual(r.warnings, []);
+});
+
+test('tablet 4:3 warns', () => {
+  const r = checkImages(build({ ...phones(2, 360, 640), ...tablets(4, 1600, 1200) }));
+  assert.equal(r.ok, true);
+  assert.ok(r.warnings.some((w) => /16:9/.test(w.message)));
+});
+
+test('2 tablet files warn', () => {
+  const r = checkImages(build({ ...phones(2, 360, 640), ...tablets(2, 1920, 1080) }));
+  assert.equal(r.ok, true);
+  assert.ok(r.warnings.some((w) => /at least 4/.test(w.message)));
+});
+
+test('feature graphic png and jpg both present warns', () => {
+  const r = checkImages(build({ ...phones(2, 360, 640), 'featureGraphic.png': png(1024, 500), 'featureGraphic.jpg': jpeg(1024, 500) }));
+  assert.ok(r.warnings.some((w) => /keep one/.test(w.message)));
 });
