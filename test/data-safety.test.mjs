@@ -22,14 +22,15 @@ const writeDoc = (doc) => { const f = join(tmp, `d${Math.random()}.yaml`); write
 const capture = () => { const o = [], e = []; return { o, e, out: (s) => o.push(s), err: (s) => e.push(s) }; };
 
 test('buildCsv maps the example through the fixture map', () => {
-  const doc = reviewed();
-  const rows = parseCsv(buildCsv(doc, loadCsvMap(MAP)));
-  assert.equal(rows.length, 6);
-  assert.deepEqual(rows[1].slice(0, 3), ['Q_COLLECTS', '', 'TRUE']);
-  assert.deepEqual(rows[2].slice(0, 3), ['Q_TYPES_LOC', 'R_APPROX', 'FALSE']);
-  assert.equal(rows[3][2], 'TRUE');
-  assert.equal(rows[4][2], 'TRUE'); // deletion = in_app
-  assert.equal(rows[5][2], 'FALSE');
+  const rows = parseCsv(buildCsv(reviewed(), loadCsvMap(MAP)));
+  assert.deepEqual(rows[0].slice(0, 3), ['Question ID (machine readable)', 'Response ID (machine readable)', 'Response value']);
+  assert.equal(rows.length, 7);
+  assert.deepEqual(rows[1].slice(0, 3), ['Q_COLLECTS', '', 'true']);
+  assert.deepEqual(rows[2].slice(0, 3), ['Q_TYPES_LOC', 'R_APPROX', '']); // not collected, not shared: blank
+  assert.equal(rows[3][2], 'true');
+  assert.equal(rows[4][2], 'true'); // deletion = yes
+  assert.equal(rows[5][2], ''); // unselected choice stays blank
+  assert.equal(rows[6][2], ''); // blank row
 });
 
 test('buildCsv quotes commas, quotes and newlines', () => {
@@ -48,7 +49,7 @@ test('needs_review answers are refused and listed', async () => {
   const c = capture();
   const code = await run([EXAMPLE.pathname, '--map', MAP], c);
   assert.equal(code, 1);
-  assert.ok(c.e.some((l) => l.includes('sections.data_safety.security.deletion_request_mechanism')));
+  assert.ok(c.e.some((l) => l.includes('sections.data_safety.security.data_deletion')));
 });
 
 test('missing map exits 3 with message', () => {
@@ -71,7 +72,7 @@ test('dry run prints CSV and diff, does not call the publisher', async () => {
   const c = capture(); let called = false;
   const code = await run([writeDoc(reviewed()), '--map', MAP, '--current', cur], { ...c, getPublisher: async () => { called = true; } });
   assert.equal(code, 0); assert.equal(called, false);
-  assert.ok(c.o.join('\n').includes('~ Q_COLLECTS: FALSE -> TRUE'));
+  assert.ok(c.o.join('\n').includes('~ Q_COLLECTS: FALSE -> true'));
 });
 
 test('--apply posts through the injected publisher', async () => {
@@ -82,7 +83,7 @@ test('--apply posts through the injected publisher', async () => {
   assert.equal(code, 0);
   assert.equal(calls.length, 1);
   assert.equal(calls[0].packageName, parse(readFileSync(EXAMPLE, 'utf8')).package_name);
-  assert.ok(calls[0].requestBody.safetyLabels.startsWith('Question ID (machine readable),Response (machine readable),'));
+  assert.ok(calls[0].requestBody.safetyLabels.startsWith('Question ID (machine readable),Response ID (machine readable),'));
   const c2 = capture();
   await run([writeDoc(reviewed()), '--map', MAP, '--apply', '--package', 'com.override.app'], { ...c2, getPublisher: async () => publisher });
   assert.equal(calls[1].packageName, 'com.override.app');
@@ -103,4 +104,63 @@ test('missing flag values and unreadable files exit 1 cleanly', async () => {
     assert.equal(await run(argv, c), 1, argv.join(' '));
     assert.equal(c.e.length >= 1, true);
   }
+});
+
+const REAL_MAP = new URL('../schema/data-safety-csv-map.json', import.meta.url).pathname;
+const TEMPLATE = parseCsv(readFileSync(new URL('../schema/data-safety-template.csv', import.meta.url), 'utf8')).slice(1);
+const schema = JSON.parse(readFileSync(new URL('../schema/app-content.schema.json', import.meta.url), 'utf8'));
+
+test('template carries structure only: no response values', () => {
+  assert.equal(TEMPLATE.length, 782);
+  assert.ok(TEMPLATE.every((r) => r.length === 5 && r[2] === ''));
+});
+
+test('every template row is mapped exactly once, and the map has no extra rows', () => {
+  const map = loadCsvMap(REAL_MAP);
+  const key = (q, r) => `${q}\u0000${r ?? ''}`;
+  const seen = new Map();
+  for (const m of map) seen.set(key(m.question_id, m.response_id), (seen.get(key(m.question_id, m.response_id)) ?? 0) + 1);
+  assert.ok([...seen.values()].every((n) => n === 1), 'duplicate map rows');
+  assert.equal(map.length, TEMPLATE.length);
+  for (const [q, r, , req, label] of TEMPLATE) assert.equal(seen.get(key(q, r)), 1, `${q} ${r} not mapped`);
+  map.forEach((m, i) => {
+    assert.deepEqual([m.question_id, m.response_id ?? '', m.requirement, m.label], [TEMPLATE[i][0], TEMPLATE[i][1], TEMPLATE[i][3], TEMPLATE[i][4]], `row ${i} differs from template`);
+  });
+});
+
+test('buildCsv yields exactly the template rows in the template order', () => {
+  const rows = parseCsv(buildCsv(reviewed(), loadCsvMap(REAL_MAP))).slice(1);
+  assert.deepEqual(rows.map((r) => [r[0], r[1], r[3], r[4]]), TEMPLATE.map((r) => [r[0], r[1], r[3], r[4]]));
+});
+
+test('every data_safety schema field is read by at least one map row', () => {
+  const props = schema.properties.sections.properties.data_safety.properties;
+  const paths = [];
+  const walk = (node, path) => {
+    if (node.$ref?.endsWith('_answer') || node.$ref?.endsWith('/answer')) { paths.push(path.join('.')); return; }
+    const kids = node.properties ?? (node.$ref ? schema.$defs[node.$ref.split('/').pop()].properties : null);
+    if (!kids) throw new Error(`unexpected node at ${path.join('.')}`);
+    for (const [k, v] of Object.entries(kids)) walk(v, [...path, k]);
+  };
+  for (const [k, v] of Object.entries(props)) walk(v, ['sections', 'data_safety', k]);
+  assert.equal(paths.length, 50); // 38 data types + 12 other answers
+  const used = loadCsvMap(REAL_MAP).flatMap((m) => (m.from ? [m.from].flat() : []));
+  for (const p of paths) {
+    const hits = used.filter((u) => u === `${p}.value` || u.startsWith(`${p}.value.`));
+    assert.ok(hits.length >= 1, `${p} is not mapped`);
+  }
+});
+
+test('collected data type fills its template rows', () => {
+  const doc = reviewed();
+  const ds = doc.sections.data_safety;
+  ds.data_types.location.approximate_location.value = { collected: true, shared: false, ephemeral: false, required: false, collection_purposes: ['analytics'] };
+  const rows = parseCsv(buildCsv(doc, loadCsvMap(REAL_MAP)));
+  const val = (q, r = '') => rows.find((x) => x[0] === q && x[1] === r)[2];
+  assert.equal(val('PSL_DATA_TYPES_LOCATION', 'PSL_APPROX_LOCATION'), 'true');
+  assert.equal(val('PSL_DATA_USAGE_RESPONSES:PSL_APPROX_LOCATION:PSL_DATA_USAGE_COLLECTION_AND_SHARING', 'PSL_DATA_USAGE_ONLY_COLLECTED'), 'true');
+  assert.equal(val('PSL_DATA_USAGE_RESPONSES:PSL_APPROX_LOCATION:PSL_DATA_USAGE_EPHEMERAL'), 'false');
+  assert.equal(val('PSL_DATA_USAGE_RESPONSES:PSL_APPROX_LOCATION:DATA_USAGE_USER_CONTROL', 'PSL_DATA_USAGE_USER_CONTROL_OPTIONAL'), 'true');
+  assert.equal(val('PSL_DATA_USAGE_RESPONSES:PSL_APPROX_LOCATION:DATA_USAGE_COLLECTION_PURPOSE', 'PSL_ANALYTICS'), 'true');
+  assert.equal(val('PSL_DATA_USAGE_RESPONSES:PSL_APPROX_LOCATION:DATA_USAGE_COLLECTION_PURPOSE', 'PSL_ADVERTISING'), '');
 });

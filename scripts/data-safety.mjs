@@ -4,22 +4,26 @@ import { parse } from 'yaml';
 import { validateAppContent } from './validate.mjs';
 
 const DEFAULT_MAP = fileURLToPath(new URL('../schema/data-safety-csv-map.json', import.meta.url));
-const HEADER = ['Question ID (machine readable)', 'Response (machine readable)', 'Response value', 'Answer requirement', 'Human-friendly question label'];
+const HEADER = ['Question ID (machine readable)', 'Response ID (machine readable)', 'Response value', 'Answer requirement', 'Human-friendly question label'];
 
 export const MISSING_MAP_MESSAGE =
   'Data safety mapping table not found (schema/data-safety-csv-map.json). Export the Data safety CSV from Play Console → App content → Data safety → Export to CSV, then build the mapping.';
 
 /**
- * Mapping table: a JSON array of rows, in output order.
+ * Mapping table (schema/data-safety-csv-map.json): a JSON array of rows, one per template row, in output order.
  * @typedef {object} CsvMapRow
  * @property {string} question_id   Play question ID, e.g. "PSL_DATA_TYPES_LOCATION".
  * @property {string} [response_id] Play response ID, e.g. "PSL_APPROX_LOCATION". Omit for single-cell questions.
- * @property {string} from          Dotted path into the app-content document (e.g. "sections.data_safety.security.encrypted_in_transit.value").
- * @property {*} [when]             If set, the row is "TRUE" when the resolved value equals it (or, for arrays, includes it), else "FALSE".
- * @property {"TRUE"|"FALSE"|string} [value] Fixed cell value (used instead of the resolved value; with `when`, used on match).
- * @property {string} [requirement] Answer requirement column (OPTIONAL, REQUIRED, ...). Default blank.
- * @property {string} [label]       Human-friendly label column. Default blank.
- * Without `when` and `value`, the resolved value is written: booleans as TRUE/FALSE, undefined/null as blank.
+ * @property {string|string[]} [from] Dotted path(s) into the app-content document, e.g. "sections.data_safety.security.encrypted_in_transit.value".
+ *   With several paths, the first defined value is used (or, with `when`, any path matching counts as a hit).
+ * @property {boolean} [blank]      Cell is always empty (question deliberately not modelled). Use instead of `from`.
+ * @property {*} [when]             Choice row: the cell is "true" when the resolved value equals it (or, for arrays, includes it), else `otherwise`.
+ * @property {string} [value]       Fixed text written on a `when` match instead of "true".
+ * @property {string} [otherwise]   Text written when `when` does not match. Default blank (Google leaves unselected choices blank).
+ * @property {string} [requirement] Answer requirement column (OPTIONAL, REQUIRED, MULTIPLE_CHOICE, ...).
+ * @property {string} [label]       Human-friendly question label column.
+ * Without `when`, the resolved value is written: booleans as true/false (Google's export uses lowercase), strings as-is,
+ * undefined/null as blank.
  */
 
 export function loadCsvMap(path) {
@@ -35,28 +39,31 @@ export function loadCsvMap(path) {
   rows.forEach((r, i) => {
     const bad = (m) => { throw new Error(`${path}: row ${i}: ${m}`); };
     if (!r || typeof r !== 'object' || Array.isArray(r)) bad('must be an object');
-    for (const k of ['question_id', 'from']) if (typeof r[k] !== 'string' || !r[k]) bad(`"${k}" must be a non-empty string`);
-    for (const k of ['response_id', 'requirement', 'label']) if (k in r && typeof r[k] !== 'string') bad(`"${k}" must be a string`);
-    if ('value' in r && typeof r.value !== 'string') bad('"value" must be a string');
-    const extra = Object.keys(r).filter((k) => !['question_id', 'response_id', 'from', 'when', 'value', 'requirement', 'label'].includes(k));
+    if (typeof r.question_id !== 'string' || !r.question_id) bad('"question_id" must be a non-empty string');
+    const paths = Array.isArray(r.from) ? r.from : [r.from];
+    if (r.blank === true) { if ('from' in r || 'when' in r) bad('"blank" rows take no "from"/"when"'); }
+    else if (!paths.length || paths.some((p) => typeof p !== 'string' || !p)) bad('"from" must be a non-empty string or array of strings (or set "blank": true)');
+    if ('blank' in r && typeof r.blank !== 'boolean') bad('"blank" must be a boolean');
+    for (const k of ['response_id', 'value', 'otherwise', 'requirement', 'label']) if (k in r && typeof r[k] !== 'string') bad(`"${k}" must be a string`);
+    const extra = Object.keys(r).filter((k) => !['question_id', 'response_id', 'from', 'blank', 'when', 'value', 'otherwise', 'requirement', 'label'].includes(k));
     if (extra.length) bad(`unknown field(s): ${extra.join(', ')}`);
   });
   return rows;
 }
 
 const resolve = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
-const bool = (b) => (b ? 'TRUE' : 'FALSE');
+const bool = (b) => (b ? 'true' : 'false');
 
 function cell(row, appContent) {
-  const v = resolve(appContent, row.from);
+  if (row.blank) return '';
+  const vals = (Array.isArray(row.from) ? row.from : [row.from]).map((p) => resolve(appContent, p));
   if ('when' in row) {
-    const hit = Array.isArray(v) ? v.includes(row.when) : v === row.when;
-    return hit ? (row.value ?? 'TRUE') : 'FALSE';
+    const hit = vals.some((v) => (Array.isArray(v) ? v.includes(row.when) : v === row.when));
+    return hit ? (row.value ?? 'true') : (row.otherwise ?? '');
   }
-  if (row.value !== undefined) return row.value;
-  if (v === undefined || v === null) return '';
-  if (typeof v === 'boolean') return bool(v);
-  return String(v);
+  const v = vals.find((x) => x !== undefined && x !== null);
+  if (v === undefined) return '';
+  return typeof v === 'boolean' ? bool(v) : String(v);
 }
 
 const quote = (s) => (/[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s);
