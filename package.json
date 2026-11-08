@@ -10,6 +10,7 @@
     "node": ">=20"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "check-listing": "node scripts/check-listing.mjs"
   }
 }
