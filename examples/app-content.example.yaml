@@ -1,0 +1,396 @@
+# Fictional offline habit tracker with an anonymous analytics SDK.
+package_name: com.example.habitly
+app_name: Habitly
+sections:
+  privacy_policy:
+    url:
+      value: https://example.com/habitly/privacy
+      evidence:
+        - file: README.md
+          note: Policy URL listed in README
+      status: confirmed
+  app_access:
+    all_functionality_available:
+      value: true
+      evidence:
+        - file: app/src/main/AndroidManifest.xml
+          note: No login activity; no auth dependency
+      status: confirmed
+    access_instructions:
+      value: null
+      evidence:
+        - note: Nothing restricted
+          file: app/build.gradle.kts
+      status: confirmed
+  ads:
+    contains_ads:
+      value: false
+      evidence:
+        - file: app/build.gradle.kts
+          note: No ad SDK dependency
+      status: confirmed
+  advertising_id:
+    uses_advertising_id:
+      value: false
+      evidence:
+        - file: app/src/main/AndroidManifest.xml
+          note: No AD_ID permission, analytics SDK configured without it
+      status: confirmed
+    purposes:
+      value: []
+      evidence:
+        - file: app/src/main/AndroidManifest.xml
+      status: confirmed
+  content_rating:
+    category:
+      value: utility_productivity_communication_or_other
+      evidence:
+        - owner: founder
+          note: Habit tracker, no user content
+      status: confirmed
+    questionnaire:
+      violence:
+        value: false
+        evidence:
+          - owner: founder
+            note: No such content
+        status: confirmed
+      user_generated_content:
+        value: false
+        evidence:
+          - file: app/src/main/AndroidManifest.xml
+            note: No network sharing features
+        status: confirmed
+      shares_user_location:
+        value: false
+        evidence:
+          - file: app/src/main/AndroidManifest.xml
+            note: No location permission
+        status: confirmed
+      digital_purchases:
+        value: null
+        evidence: []
+        status: needs_review
+        question: Will a paid tier ship in this release?
+  target_audience:
+    age_groups:
+      value:
+        - 18_and_over
+      evidence:
+        - owner: founder
+          note: Adult self-improvement app
+      status: confirmed
+    appeals_to_children:
+      value: false
+      evidence:
+        - owner: founder
+      status: confirmed
+  news_app:
+    is_news_app:
+      value: false
+      evidence:
+        - owner: founder
+      status: confirmed
+  data_safety:
+    collects_or_shares_user_data:
+      value: true
+      evidence:
+        - dependency: com.example.analytics:anon-sdk
+      status: confirmed
+    data_types:
+      location:
+        approximate_location:
+          value: &a1
+            collected: false
+            shared: false
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        precise_location:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      personal_info:
+        name:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        email_address:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        user_ids:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        address:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        phone_number:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        race_and_ethnicity:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        political_or_religious_beliefs:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        sexual_orientation:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        other_info:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      financial_info:
+        user_payment_info:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        purchase_history:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        credit_score:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        other_financial_info:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      health_and_fitness:
+        health_info:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        fitness_info:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      messages:
+        emails:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        sms_or_mms:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        other_in_app_messages:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      photos_and_videos:
+        photos:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        videos:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      audio:
+        voice_or_sound_recordings:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        music_files:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        other_audio_files:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      files_and_docs:
+        files_and_docs:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      calendar:
+        calendar_events:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      contacts:
+        contacts:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      app_activity:
+        app_interactions:
+          value:
+            collected: true
+            shared: false
+            ephemeral: false
+            required: false
+            collection_purposes:
+              - analytics
+          evidence:
+            - dependency: com.example.analytics:anon-sdk
+            - file: app/src/main/kotlin/App.kt
+              note: SDK initialised with anonymous mode, opt-out toggle in settings
+          status: confirmed
+        in_app_search_history:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        installed_apps:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        other_user_generated_content:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        other_actions:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      web_browsing:
+        web_browsing_history:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      app_info_and_performance:
+        crash_logs:
+          value:
+            collected: true
+            shared: false
+            ephemeral: false
+            required: true
+            collection_purposes:
+              - analytics
+              - app_functionality
+          evidence:
+            - dependency: com.example.analytics:anon-sdk
+              note: Crash reporting module enabled
+          status: confirmed
+        diagnostics:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+        other_app_performance_data:
+          value: *a1
+          evidence:
+            - file: app/src/main/AndroidManifest.xml
+              note: No code path collects this
+          status: confirmed
+      device_or_other_ids:
+        device_or_other_ids:
+          value:
+            collected: true
+            shared: false
+            ephemeral: false
+            required: true
+            collection_purposes:
+              - analytics
+          evidence:
+            - dependency: com.example.analytics:anon-sdk
+          status: needs_review
+          question: Does the analytics SDK generate a persistent install ID?
+    security:
+      encrypted_in_transit:
+        value: true
+        evidence:
+          - file: app/src/main/res/xml/network_security_config.xml
+            note: cleartextTrafficPermitted=false
+        status: confirmed
+      deletion_request_mechanism:
+        value: in_app
+        evidence:
+          - file: app/src/main/kotlin/SettingsScreen.kt
+        status: needs_review
+        question: Does the settings screen offer analytics data deletion, or only opt-out?
+  government_app:
+    is_government_app:
+      value: false
+      evidence:
+        - owner: founder
+      status: confirmed
+  financial_features:
+    features:
+      value: []
+      evidence:
+        - file: app/build.gradle.kts
+          note: No payment or banking dependency
+      status: confirmed
+  health_apps:
+    features:
+      value: []
+      evidence: []
+      status: needs_review
+      question: Does habit tracking include sleep/medication habits that count as health features?
