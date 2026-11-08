@@ -1,0 +1,7 @@
+[
+  { "question_id": "Q_COLLECTS", "from": "sections.data_safety.collects_or_shares_user_data.value", "requirement": "REQUIRED", "label": "Collects, or shares data" },
+  { "question_id": "Q_TYPES_LOC", "response_id": "R_APPROX", "from": "sections.data_safety.data_types.location.approximate_location.value.collected" },
+  { "question_id": "Q_TRANSIT", "from": "sections.data_safety.security.encrypted_in_transit.value" },
+  { "question_id": "Q_DELETE", "response_id": "R_IN_APP", "from": "sections.data_safety.security.deletion_request_mechanism.value", "when": "in_app" },
+  { "question_id": "Q_DELETE", "response_id": "R_NONE", "from": "sections.data_safety.security.deletion_request_mechanism.value", "when": "none" }
+]
