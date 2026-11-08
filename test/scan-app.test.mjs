@@ -40,7 +40,7 @@ test('pubspec: dependencies only, no dev dependencies', () => {
 
 test('gradle literal dependencies; project() refs ignored', () => {
   const g = scanApp(fx).dependencies.gradle.filter((d) => !d.via);
-  assert.deepEqual(g.map((d) => [d.name, d.version]), [['com.example.sdk:sample-sdk', '1.2.3']]);
+  assert.deepEqual(g.map((d) => [d.name, d.version]), [['com.example.sdk:sample-sdk', '1.2.3'], ['com.example.bom:managed-lib', null]]);
   assert.equal(g[0].file, 'android/app/build.gradle.kts');
 });
 
